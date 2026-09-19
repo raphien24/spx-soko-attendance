@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORS Test</title>
+</head>
+<body>
+    <h1>Testing CORS from absensi.spxsoko.online</h1>
+    <button onclick="testAPI()">Test API Connection</button>
+    <pre id="result"></pre>
+    
+    <script>
+        async function testAPI() {
+            const result = document.getElementById('result');
+            result.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch('https://spx-soko-attendance-api-production.spxsoko.workers.dev/api/health');
+                const data = await response.json();
+                
+                result.textContent = 'SUCCESS!\n\n' + JSON.stringify(data, null, 2);
+                result.style.color = 'green';
+            } catch (error) {
+                result.textContent = 'ERROR!\n\n' + error.message;
+                result.style.color = 'red';
+            }
+        }
+        
+        // Auto test on load
+        window.onload = () => {
+            setTimeout(testAPI, 1000);
+        };
+    </script>
+</body>
+</html>
