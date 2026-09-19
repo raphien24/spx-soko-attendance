@@ -1,0 +1,377 @@
+/**
+ * Database Query Helpers
+ * Reusable prepared statement functions for Cloudflare D1
+ */
+
+// ============================================
+// USER QUERIES
+// ============================================
+
+/**
+ * Insert a new user into the database
+ * @param {D1Database} db - D1 database binding
+ * @param {Object} userData - User data object
+ * @param {string} userData.id - UUID
+ * @param {string} userData.employee_id - SPX-XXX format
+ * @param {string} userData.name - Full name
+ * @param {string} userData.role - 'admin' or 'employee'
+ * @param {string} userData.face_descriptor - JSON stringified array
+ * @param {string} userData.photo_url - R2 URL
+ * @param {string} userData.created_at - ISO 8601 timestamp
+ * @returns {Promise<Object>} Result object
+ */
+async function insertUser(db, userData) {
+    const stmt = db.prepare(
+        `INSERT INTO users (id, employee_id, name, role, face_descriptor, photo_url, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+    );
+    
+    return await stmt
+        .bind(
+            userData.id,
+            userData.employee_id,
+            userData.name,
+            userData.role || 'employee',
+            userData.face_descriptor,
+            userData.photo_url,
+            userData.created_at
+        )
+        .run();
+}
+
+/**
+ * Get user by ID
+ * @param {D1Database} db 
+ * @param {string} userId - User UUID
+ * @returns {Promise<Object|null>} User object or null
+ */
+async function getUserById(db, userId) {
+    const stmt = db.prepare(`SELECT * FROM users WHERE id = ?`);
+    const result = await stmt.bind(userId).first();
+    return result;
+}
+
+/**
+ * Get user by employee ID
+ * @param {D1Database} db 
+ * @param {string} employeeId - Employee ID (SPX-XXX)
+ * @returns {Promise<Object|null>} User object or null
+ */
+async function getUserByEmployeeId(db, employeeId) {
+    const stmt = db.prepare(`SELECT * FROM users WHERE employee_id = ?`);
+    const result = await stmt.bind(employeeId).first();
+    return result;
+}
+
+/**
+ * Get all users (without face descriptors for performance)
+ * @param {D1Database} db 
+ * @returns {Promise<Array>} Array of user objects
+ */
+async function getAllUsers(db) {
+    const stmt = db.prepare(
+        `SELECT id, employee_id, name, role, photo_url, created_at, updated_at 
+         FROM users 
+         ORDER BY created_at DESC`
+    );
+    const result = await stmt.all();
+    return result.results || [];
+}
+
+/**
+ * Get all face descriptors (for scanner matching)
+ * @param {D1Database} db 
+ * @returns {Promise<Array>} Array of objects with id, employee_id, name, face_descriptor
+ */
+async function getAllFaceDescriptors(db) {
+    const stmt = db.prepare(
+        `SELECT id, employee_id, name, face_descriptor 
+         FROM users 
+         ORDER BY name ASC`
+    );
+    const result = await stmt.all();
+    return result.results || [];
+}
+
+/**
+ * Delete user by ID (cascade will delete attendance logs)
+ * @param {D1Database} db 
+ * @param {string} userId - User UUID
+ * @returns {Promise<Object>} Result object
+ */
+async function deleteUser(db, userId) {
+    const stmt = db.prepare(`DELETE FROM users WHERE id = ?`);
+    return await stmt.bind(userId).run();
+}
+
+/**
+ * Update user data
+ * @param {D1Database} db 
+ * @param {string} userId 
+ * @param {Object} updates - Fields to update
+ * @returns {Promise<Object>} Result object
+ */
+async function updateUser(db, userId, updates) {
+    const fields = [];
+    const values = [];
+    
+    if (updates.name) {
+        fields.push('name = ?');
+        values.push(updates.name);
+    }
+    if (updates.role) {
+        fields.push('role = ?');
+        values.push(updates.role);
+    }
+    if (updates.face_descriptor) {
+        fields.push('face_descriptor = ?');
+        values.push(updates.face_descriptor);
+    }
+    if (updates.photo_url) {
+        fields.push('photo_url = ?');
+        values.push(updates.photo_url);
+    }
+    
+    fields.push('updated_at = ?');
+    values.push(new Date().toISOString());
+    values.push(userId);
+    
+    const stmt = db.prepare(
+        `UPDATE users SET ${fields.join(', ')} WHERE id = ?`
+    );
+    
+    return await stmt.bind(...values).run();
+}
+
+// ============================================
+// ATTENDANCE QUERIES
+// ============================================
+
+/**
+ * Insert attendance log
+ * @param {D1Database} db 
+ * @param {Object} logData 
+ * @param {string} logData.id - UUID
+ * @param {string} logData.user_id - User UUID
+ * @param {string} logData.employee_id - Employee ID
+ * @param {string} logData.name - Employee name
+ * @param {string} logData.scan_type - 'IN' or 'OUT'
+ * @param {string} logData.timestamp - ISO 8601 server timestamp
+ * @param {string} logData.capture_url - R2 URL
+ * @param {string} logData.created_at - ISO 8601 timestamp
+ * @returns {Promise<Object>} Result object
+ */
+async function insertAttendanceLog(db, logData) {
+    const stmt = db.prepare(
+        `INSERT INTO attendance_logs (id, user_id, employee_id, name, scan_type, timestamp, capture_url, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    
+    return await stmt
+        .bind(
+            logData.id,
+            logData.user_id,
+            logData.employee_id,
+            logData.name,
+            logData.scan_type,
+            logData.timestamp,
+            logData.capture_url,
+            logData.created_at
+        )
+        .run();
+}
+
+/**
+ * Get today's attendance for a specific user
+ * @param {D1Database} db 
+ * @param {string} userId - User UUID
+ * @returns {Promise<Array>} Array of attendance logs for today
+ */
+async function getTodayAttendance(db, userId) {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    const stmt = db.prepare(
+        `SELECT * FROM attendance_logs 
+         WHERE user_id = ? AND date(timestamp) = ? 
+         ORDER BY timestamp ASC`
+    );
+    
+    const result = await stmt.bind(userId, today).all();
+    return result.results || [];
+}
+
+/**
+ * Get all attendance logs for today
+ * Joins with users table to get role information
+ * @param {D1Database} db 
+ * @returns {Promise<Array>} Array of all today's logs
+ */
+async function getAllTodayLogs(db) {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    const stmt = db.prepare(
+        `SELECT 
+            attendance_logs.*,
+            users.role
+         FROM attendance_logs 
+         LEFT JOIN users ON attendance_logs.user_id = users.id
+         WHERE date(attendance_logs.timestamp) = ? 
+         ORDER BY attendance_logs.timestamp DESC`
+    );
+    
+    const result = await stmt.bind(today).all();
+    return result.results || [];
+}
+
+/**
+ * Get attendance logs within date range
+ * Joins with users table to get role information
+ * @param {D1Database} db 
+ * @param {string} startDate - YYYY-MM-DD
+ * @param {string} endDate - YYYY-MM-DD
+ * @returns {Promise<Array>} Array of logs
+ */
+async function getAttendanceByDateRange(db, startDate, endDate) {
+    const stmt = db.prepare(
+        `SELECT 
+            attendance_logs.*,
+            users.role
+         FROM attendance_logs 
+         LEFT JOIN users ON attendance_logs.user_id = users.id
+         WHERE date(attendance_logs.timestamp) >= ? AND date(attendance_logs.timestamp) <= ? 
+         ORDER BY attendance_logs.timestamp DESC`
+    );
+    
+    const result = await stmt.bind(startDate, endDate).all();
+    return result.results || [];
+}
+
+/**
+ * Get all attendance history for a specific user
+ * @param {D1Database} db 
+ * @param {string} userId - User UUID
+ * @returns {Promise<Array>} Array of user's attendance logs
+ */
+async function getUserAttendanceHistory(db, userId) {
+    const stmt = db.prepare(
+        `SELECT * FROM attendance_logs 
+         WHERE user_id = ? 
+         ORDER BY timestamp DESC`
+    );
+    
+    const result = await stmt.bind(userId).all();
+    return result.results || [];
+}
+
+/**
+ * Count attendance logs for user on specific date
+ * @param {D1Database} db 
+ * @param {string} userId 
+ * @param {string} date - YYYY-MM-DD
+ * @returns {Promise<number>} Count of logs
+ */
+async function countUserLogsOnDate(db, userId, date) {
+    const stmt = db.prepare(
+        `SELECT COUNT(*) as count FROM attendance_logs 
+         WHERE user_id = ? AND date(timestamp) = ?`
+    );
+    
+    const result = await stmt.bind(userId, date).first();
+    return result ? result.count : 0;
+}
+
+/**
+ * Get user's last scan type for today
+ * @param {D1Database} db 
+ * @param {string} userId 
+ * @returns {Promise<string|null>} 'IN', 'OUT', or null
+ */
+async function getLastScanTypeToday(db, userId) {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const stmt = db.prepare(
+        `SELECT scan_type FROM attendance_logs 
+         WHERE user_id = ? AND date(timestamp) = ? 
+         ORDER BY timestamp DESC 
+         LIMIT 1`
+    );
+    
+    const result = await stmt.bind(userId, today).first();
+    return result ? result.scan_type : null;
+}
+
+// ============================================
+// HUB SETTINGS QUERIES
+// ============================================
+
+/**
+ * Get hub location settings
+ * @param {D1Database} db 
+ * @returns {Promise<Object>} Hub settings object
+ */
+async function getHubSettings(db) {
+    const stmt = db.prepare(
+        `SELECT id, hub_name, latitude, longitude, radius_meters, updated_at, updated_by 
+         FROM hub_settings 
+         WHERE id = 1`
+    );
+    const result = await stmt.first();
+    return result;
+}
+
+/**
+ * Update hub location settings
+ * @param {D1Database} db 
+ * @param {Object} settings - { latitude, longitude, radius_meters, hub_name, updated_by }
+ * @returns {Promise<Object>} Result object
+ */
+async function updateHubSettings(db, settings) {
+    const { latitude, longitude, radius_meters, hub_name, updated_by } = settings;
+    
+    const stmt = db.prepare(
+        `UPDATE hub_settings 
+         SET latitude = ?, 
+             longitude = ?, 
+             radius_meters = ?,
+             hub_name = ?,
+             updated_at = datetime('now'),
+             updated_by = ?
+         WHERE id = 1`
+    );
+    
+    return await stmt.bind(
+        latitude,
+        longitude,
+        radius_meters || 500,
+        hub_name || 'SPX Soko Hub',
+        updated_by || null
+    ).run();
+}
+
+// ============================================
+// EXPORTS (SINGLE EXPORT BLOCK)
+// ============================================
+
+export {
+    // User queries
+    insertUser,
+    getUserById,
+    getUserByEmployeeId,
+    getAllUsers,
+    getAllFaceDescriptors,
+    deleteUser,
+    updateUser,
+    
+    // Attendance queries
+    insertAttendanceLog,
+    getTodayAttendance,
+    getAllTodayLogs,
+    getAttendanceByDateRange,
+    getUserAttendanceHistory,
+    countUserLogsOnDate,
+    getLastScanTypeToday,
+    
+    // Hub settings queries
+    getHubSettings,
+    updateHubSettings
+};

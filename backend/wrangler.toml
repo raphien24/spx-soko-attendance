@@ -1,0 +1,33 @@
+name = "spx-soko-attendance-api"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Account ID (will be set during deployment)
+# account_id = "your-account-id"
+
+# D1 Database Binding (Development)
+[[d1_databases]]
+binding = "DB"
+database_name = "spx-soko-attendance-db"
+database_id = "b1f13a6a-e159-4ef3-91a9-3dbae65d83f3"
+
+# R2 Bucket Binding (Development)
+[[r2_buckets]]
+binding = "ATTENDANCE_BUCKET"
+bucket_name = "spx-soko-attendance"
+
+# Local development settings
+[dev]
+port = 8787
+[env.production]
+name = "spx-soko-attendance-api-production"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "spx-soko-attendance-production"
+database_id = "9c5413f8-0dd0-424f-b1a5-a94f9fdebeac"
+
+[[env.production.r2_buckets]]
+binding = "ATTENDANCE_BUCKET"
+bucket_name = "spx-soko-attendance-production"

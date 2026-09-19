@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPX Soko Attendance - Admin Dashboard</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        
+        /* Mobile sidebar styles */
+        @media (max-width: 767px) {
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                z-index: 40;
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.sidebar-open {
+                transform: translateX(0);
+            }
+        }
+        
+        /* Desktop - sidebar always visible */
+        @media (min-width: 768px) {
+            .sidebar {
+                position: relative;
+                transform: translateX(0) !important;
+            }
+        }
+        
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        /* Backdrop for mobile sidebar */
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 30;
+        }
+        
+        @media (max-width: 767px) {
+            .sidebar-backdrop.active {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- PIN Security Modal (Tampil paling depan) -->
+    <div id="pin-modal" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-[100]">
+        <div class="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 text-center shadow-2xl">
+            <div class="mb-6">
+                <div class="text-6xl mb-4">🔒</div>
+                <h2 class="text-2xl font-bold text-gray-800">Akses Admin</h2>
+                <p class="text-gray-500 text-sm mt-2">Masukkan PIN keamanan untuk membuka dashboard.</p>
+            </div>
+            <form id="pin-form" class="space-y-4">
+                <input type="password" id="pin-input" required placeholder="•••••" maxlength="5"
+                       class="w-full text-center text-3xl tracking-widest px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                <p id="pin-error" class="text-red-500 text-sm hidden font-semibold">PIN salah, coba lagi!</p>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition cursor-pointer">
+                    Buka Dashboard
+                </button>
+                <a href="index.html" class="block mt-4 text-sm text-blue-600 hover:underline">← Kembali ke Scanner Kiosk</a>
+            </form>
+        </div>
+    </div>
+    
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Mobile Sidebar Backdrop -->
+        <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+        
+        <!-- Sidebar -->
+        <aside id="mobile-sidebar" class="sidebar w-64 bg-gradient-to-b from-blue-800 to-blue-900 text-white flex flex-col">
+            
+            <!-- Logo -->
+            <div class="p-6 border-b border-blue-700">
+                <h1 class="text-xl font-bold">SPX Soko Hub</h1>
+                <p class="text-blue-200 text-sm">Admin Dashboard</p>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 space-y-2">
+                <a href="#dashboard" data-tab="dashboard" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg bg-blue-700 text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+                
+                <a href="#attendance" data-tab="attendance" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-700 text-blue-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    <span>Absensi Hari Ini</span>
+                </a>
+                
+                <a href="#employees" data-tab="employees" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-700 text-blue-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    <span>Daftar Karyawan</span>
+                </a>
+                
+                <a href="#records" data-tab="records" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-700 text-blue-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <span>Riwayat Absensi</span>
+                </a>
+                
+                <a href="#hub-settings" data-tab="hub-settings" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-700 text-blue-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <span>Atur Lokasi Hub</span>
+                </a>
+            </nav>
+            
+            <!-- Bottom Actions -->
+            <div class="p-4 border-t border-blue-700 space-y-2">
+                <a href="enroll.html" class="flex items-center space-x-3 px-4 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                    </svg>
+                    <span>Daftar Karyawan Baru</span>
+                </a>
+                
+                <a href="index.html" class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-700 text-blue-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                    <span>Scanner Kiosk</span>
+                </a>
+            </div>
+            
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto">
+            
+            <!-- Header -->
+            <header class="bg-white shadow-sm border-b border-gray-200">
+                <div class="px-4 sm:px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <button id="mobile-sidebar-toggle" 
+                                class="text-gray-700 hover:text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg p-2 transition-colors duration-200"
+                                aria-label="Toggle Sidebar">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+                        </button>
+                        <div class="h-8 w-px bg-gray-300 hidden sm:block"></div>
+                        <h2 id="page-title" class="text-xl sm:text-2xl font-bold text-gray-800">Dashboard</h2>
+                    </div>
+                    <div class="flex items-center space-x-2 sm:space-x-4">
+                        <div class="text-right hidden md:block">
+                            <p id="current-date" class="text-sm text-gray-600">Loading...</p>
+                            <p id="current-time" class="text-sm font-semibold text-gray-800">00:00:00</p>
+                        </div>
+                        <button id="refresh-btn" 
+                                class="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-blue-600 transition-colors"
+                                aria-label="Refresh Data">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Content Area -->
+            <div class="p-6">
+                
+                <!-- Dashboard Tab -->
+                <div id="dashboard-tab" class="tab-content">
+                    
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600 mb-1">Total Karyawan</p>
+                                    <p id="total-employees" class="text-3xl font-bold text-gray-800">-</p>
+                                </div>
+                                <div class="bg-blue-100 p-3 rounded-full">
+                                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600 mb-1">Hadir Hari Ini</p>
+                                    <p id="present-today" class="text-3xl font-bold text-green-600">-</p>
+                                </div>
+                                <div class="bg-green-100 p-3 rounded-full">
+                                    <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600 mb-1">Belum Absen</p>
+                                    <p id="absent-today" class="text-3xl font-bold text-yellow-600">-</p>
+                                </div>
+                                <div class="bg-yellow-100 p-3 rounded-full">
+                                    <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600 mb-1">Total Scan</p>
+                                    <p id="total-scans" class="text-3xl font-bold text-purple-600">-</p>
+                                </div>
+                                <div class="bg-purple-100 p-3 rounded-full">
+                                    <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Actions -->
+                    <div class="bg-white rounded-lg shadow p-6 mb-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">Quick Actions</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <a href="enroll.html" class="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition">
+                                <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                                </svg>
+                                <span class="text-sm font-semibold text-gray-700">Tambah Karyawan</span>
+                            </a>
+                            
+                            <a href="#attendance" data-tab="attendance" class="nav-link flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition">
+                                <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                </svg>
+                                <span class="text-sm font-semibold text-gray-700">Lihat Absensi</span>
+                            </a>
+                            
+                            <a href="index.html" class="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition">
+                                <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                                <span class="text-sm font-semibold text-gray-700">Buka Scanner</span>
+                            </a>
+                            
+                            <button id="export-btn" class="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition cursor-pointer">
+                                <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                <span class="text-sm font-semibold text-gray-700">Export Data</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                <!-- Attendance Today Tab -->
+                <div id="attendance-tab" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-6 border-b border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-lg font-bold text-gray-800">Absensi Hari Ini</h3>
+                                    <p id="today-date" class="text-sm text-gray-600">Loading...</p>
+                                </div>
+                                <span id="today-count" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">0 scan</span>
+                            </div>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Employee ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nama</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Waktu</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Foto</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="today-attendance-body" class="divide-y divide-gray-200">
+                                    <tr>
+                                        <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+                                            <svg class="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                            </svg>
+                                            Memuat data absensi...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Employees Tab -->
+                <div id="employees-tab" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-6 border-b border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-lg font-bold text-gray-800">Daftar Karyawan</h3>
+                                    <p class="text-sm text-gray-600">Kelola data karyawan terdaftar</p>
+                                </div>
+                                <a href="enroll.html" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg transition">
+                                    + Tambah Karyawan
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Foto</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Employee ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nama</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Jabatan</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Terdaftar</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="all-employees-body" class="divide-y divide-gray-200">
+                                    <tr>
+                                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                                            <svg class="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                            </svg>
+                                            Memuat daftar karyawan...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Records Tab -->
+                <div id="records-tab" class="tab-content hidden">
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4">Riwayat Absensi</h3>
+                            
+                            <!-- Date Filter -->
+                            <form id="date-range-form">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Tanggal Mulai</label>
+                                    <input type="date" id="start-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Tanggal Akhir</label>
+                                    <input type="date" id="end-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                </div>
+                                <div class="flex items-end">
+                                    <button type="submit" id="filter-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition cursor-pointer">
+                                        🔍 Filter
+                                    </button>
+                                </div>
+                            </div>
+                            </form>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tanggal</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Employee ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nama</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Waktu</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="records-body" class="divide-y divide-gray-200">
+                                    <tr>
+                                        <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+                                            Pilih rentang tanggal dan klik Filter
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Hub Settings Tab -->
+                <div id="hub-settings-tab" class="tab-content hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">📍 Pengaturan Lokasi Hub</h2>
+                    
+                    <!-- Current Location Card -->
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Lokasi Hub Saat Ini
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <p class="text-sm text-gray-600">Nama Hub:</p>
+                                <p id="current-hub-name" class="text-lg font-bold text-gray-800">Loading...</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Radius Maksimal:</p>
+                                <p id="current-radius" class="text-lg font-bold text-gray-800">-</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Latitude:</p>
+                                <p id="current-latitude" class="text-lg font-mono text-gray-800">-</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Longitude:</p>
+                                <p id="current-longitude" class="text-lg font-mono text-gray-800">-</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                            <p class="text-sm text-blue-700">
+                                <strong>Terakhir diupdate:</strong> <span id="current-updated-at">-</span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Update Location Form -->
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                            </svg>
+                            Ubah Lokasi Hub
+                        </h3>
+                        
+                        <form id="hub-location-form" class="space-y-4">
+                            <!-- Hub Name -->
+                            <div>
+                                <label for="hub-name-input" class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Nama Hub
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="hub-name-input"
+                                    value="SPX Soko Hub"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+                            
+                            <!-- Latitude (DIJADIKAN step="any" agar presisi desimal diterima browser) -->
+                            <div>
+                                <label for="latitude-input" class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Latitude <span class="text-red-500">*</span>
+                                </label>
+                                <input 
+                                    type="number" 
+                                    id="latitude-input"
+                                    step="any"
+                                    min="-90"
+                                    max="90"
+                                    required
+                                    placeholder="-7.0861707572348545"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                                />
+                                <p class="text-xs text-gray-500 mt-1">Koordinat latitude (-90 sampai 90)</p>
+                            </div>
+                            
+                            <!-- Longitude (DIJADIKAN step="any" agar presisi desimal diterima browser) -->
+                            <div>
+                                <label for="longitude-input" class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Longitude <span class="text-red-500">*</span>
+                                </label>
+                                <input 
+                                    type="number" 
+                                    id="longitude-input"
+                                    step="any"
+                                    min="-180"
+                                    max="180"
+                                    required
+                                    placeholder="111.97167733649127"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                                />
+                                <p class="text-xs text-gray-500 mt-1">Koordinat longitude (-180 sampai 180)</p>
+                            </div>
+                            
+                            <!-- Radius -->
+                            <div>
+                                <label for="radius-input" class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Radius Maksimal (meter) <span class="text-red-500">*</span>
+                                </label>
+                                <input 
+                                    type="number" 
+                                    id="radius-input"
+                                    min="50"
+                                    max="10000"
+                                    value="500"
+                                    required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p class="text-xs text-gray-500 mt-1">Radius area hub (50 - 10000 meter)</p>
+                            </div>
+                            
+                            <!-- Help Text -->
+                            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
+                                <p class="text-sm text-yellow-700 flex items-start">
+                                    <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>
+                                        <strong>Tips:</strong> Gunakan Google Maps untuk mendapatkan koordinat yang akurat.
+                                        Klik kanan pada lokasi di Google Maps → pilih koordinat untuk menyalin.
+                                    </span>
+                                </p>
+                            </div>
+                            
+                            <!-- Buttons -->
+                            <div class="flex space-x-3 pt-4">
+                                <button 
+                                    type="submit"
+                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition flex items-center justify-center cursor-pointer"
+                                >
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                                    </svg>
+                                    Simpan Perubahan
+                                </button>
+                                <button 
+                                    type="button"
+                                    id="get-current-gps-btn"
+                                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition flex items-center justify-center cursor-pointer"
+                                >
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    </svg>
+                                    Lokasi Saat Ini
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </main>
+        
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-8 text-center">
+            <svg class="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p id="loading-message" class="text-lg font-semibold text-gray-700">Loading...</p>
+        </div>
+    </div>
+    
+    <!-- Notification Bar -->
+    <div id="notification-bar" class="fixed top-4 right-4 bg-blue-500 text-white px-6 py-4 rounded-lg shadow-lg z-50 hidden">
+        <p id="notification-message" class="font-semibold">Notification message</p>
+    </div>
+
+    <!-- Export Date Range Modal -->
+    <div id="export-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full">
+            <div class="mb-6 text-center">
+                <div class="text-4xl mb-4">📅</div>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">Export Data Absensi</h3>
+                <p class="text-gray-600 text-sm">Pilih rentang tanggal absensi yang ingin diekspor ke format CSV.</p>
+            </div>
+            
+            <form id="export-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Tanggal Mulai</label>
+                    <input type="date" id="export-start-date" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Tanggal Akhir</label>
+                    <input type="date" id="export-end-date" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mt-6">
+                    <button type="button" id="cancel-export-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition cursor-pointer">
+                        Batal
+                    </button>
+                    <button type="submit" id="confirm-export-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition cursor-pointer">
+                        Download CSV
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-8 max-w-md">
+            <div class="text-center mb-6">
+                <div class="text-6xl text-red-500 mb-4">⚠️</div>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">Hapus Karyawan?</h3>
+                <p class="text-gray-600">Data karyawan dan riwayat absensinya akan dihapus permanen.</p>
+                <p id="delete-modal-name" class="text-gray-800 font-semibold mt-2"></p>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <button id="cancel-delete-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg cursor-pointer">
+                    Batal
+                </button>
+                <button id="confirm-delete-btn" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg cursor-pointer">
+                    Hapus
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- JavaScript Modules -->
+    <script type="module" src="src/js/admin.js"></script>
+    
+</body>
+</html>
