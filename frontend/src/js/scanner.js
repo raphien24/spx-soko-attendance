@@ -76,13 +76,28 @@ async function init() {
 
 async function startSystem() {
     try {
-        // === PHASE 1: PARALLEL LOADING (60% faster!) ===
-        showInteractiveLoading('Memuat sistem... 0%', false);
+        // === PHASE 1: CAMERA PERMISSION FIRST! (Instant prompt) ===
+        // Minta izin kamera SEGERA agar user tidak menunggu lama
+        showInteractiveLoading('Meminta izin kamera... 10%', false);
+        
+        let cameraStream;
+        try {
+            cameraStream = await initializeWebcam(videoElement);
+            debugLog('✓ Camera permission granted');
+        } catch (e) {
+            errorLog('Failed to get camera permission', e);
+            throw new Error('Gagal mengakses kamera. Pastikan izin kamera diizinkan di browser Anda.');
+        }
+        
+        videoElement.addEventListener('loadedmetadata', () => {
+            resizeCanvas(canvasElement, videoElement);
+        });
+        
+        // === PHASE 2: PARALLEL LOADING (while camera is ready) ===
+        // Sekarang load semua komponen SETELAH izin kamera di-grant
+        showInteractiveLoading('Memuat komponen sistem... 30%', false);
         
         const startTime = performance.now();
-        
-        // Load semua komponen independen secara bersamaan
-        showInteractiveLoading('Memuat komponen sistem... 20%', false);
         
         const [modelsResult, serverResult, hubResult, employeesResult] = await Promise.allSettled([
             // Task 1: Load Face Models (paling lama ~6-10s)
@@ -101,7 +116,7 @@ async function startSystem() {
             })()
         ]);
         
-        showInteractiveLoading('Memproses data... 60%', false);
+        showInteractiveLoading('Memproses data... 70%', false);
         
         // Check critical results
         if (modelsResult.status === 'rejected') {
@@ -120,38 +135,27 @@ async function startSystem() {
         hubSettings = hubResult.status === 'fulfilled' ? hubResult.value : null;
         
         // Initialize audio (non-blocking)
-        showInteractiveLoading('Inisialisasi audio... 70%', false);
+        showInteractiveLoading('Inisialisasi audio... 85%', false);
         try {
             initAudio();
         } catch (e) {
             console.warn('Audio init warning:', e);
         }
         
-        const parallelTime = performance.now() - startTime;
-        console.log(`⚡ Parallel loading: ${parallelTime.toFixed(0)}ms`);
+        // Store camera stream
+        webcamStream = cameraStream;
         
-        // === PHASE 2: CAMERA ===
-        showInteractiveLoading('Mengaktifkan kamera... 80%', false);
-        
-        try {
-            webcamStream = await initializeWebcam(videoElement);
-        } catch (e) {
-            throw new Error('Gagal mengakses kamera.');
-        }
-        
-        videoElement.addEventListener('loadedmetadata', () => {
-            resizeCanvas(canvasElement, videoElement);
-        });
+        const totalTime = performance.now() - startTime;
+        console.log(`⚡ System loading: ${totalTime.toFixed(0)}ms`);
         
         showInteractiveLoading('Finalisasi... 95%', false);
         
-        // === PHASE 3: START ===
+        // === PHASE 3: START SCANNER ===
         showScanner();
         startScanning();
         startClock();
         
-        const totalTime = performance.now() - startTime;
-        console.log(`✅ Total init: ${totalTime.toFixed(0)}ms`);
+        console.log(`✅ Scanner ready!`);
         
     } catch (error) {
         errorLog('Start system failed', error);
