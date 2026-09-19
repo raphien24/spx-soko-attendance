@@ -15,9 +15,10 @@ const ALLOWED_ORIGINS = [
     'http://127.0.0.1:5500',          // Live Server alternative
     // Production origins - Cloudflare Pages
     'https://*.pages.dev',             // Wildcard for all Cloudflare Pages deployments
-    // Add your specific production URLs below:
-    // 'https://spx-soko-attendance.pages.dev',
-    // 'https://attendance.spxexpress.com'
+    'https://spx-soko-attendance.pages.dev',  // Specific Pages deployment
+    // Custom domains
+    'https://absensi.spxsoko.online',  // Production custom domain
+    'https://www.absensi.spxsoko.online', // WWW variant (if needed)
 ];
 
 /**
