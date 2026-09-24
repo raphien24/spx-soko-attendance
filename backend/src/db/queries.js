@@ -195,6 +195,10 @@ async function getTodayAttendance(db, userId) {
     const wibTime = new Date(now.getTime() + (7 * 60 * 60 * 1000));
     const today = wibTime.toISOString().split('T')[0]; // YYYY-MM-DD in WIB
     
+    console.log(`[getTodayAttendance] Checking for user: ${userId}`);
+    console.log(`[getTodayAttendance] WIB Today date: ${today}`);
+    console.log(`[getTodayAttendance] Query: SELECT * FROM attendance_logs WHERE user_id = ? AND substr(timestamp, 1, 10) = ?`);
+    
     // Extract date from timestamp using substr (first 10 characters = YYYY-MM-DD)
     const stmt = db.prepare(
         `SELECT * FROM attendance_logs 
@@ -203,6 +207,13 @@ async function getTodayAttendance(db, userId) {
     );
     
     const result = await stmt.bind(userId, today).all();
+    console.log(`[getTodayAttendance] Query result count: ${result.results ? result.results.length : 0}`);
+    
+    if (result.results && result.results.length > 0) {
+        console.log(`[getTodayAttendance] First record timestamp: ${result.results[0].timestamp}`);
+        console.log(`[getTodayAttendance] First record timestamp substr(1,10): ${result.results[0].timestamp.substring(0, 10)}`);
+    }
+    
     return result.results || [];
 }
 

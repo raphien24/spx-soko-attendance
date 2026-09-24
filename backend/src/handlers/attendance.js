@@ -75,12 +75,17 @@ async function recordAttendance(request, env) {
         
         // Block duplicate attendance on the same day — keep the earliest scan
         const existingToday = await getTodayAttendance(env.DB, user_id);
-        console.log(`[Duplicate Check] User ${user_id} - Existing records today:`, existingToday.length);
+        console.log(`[Duplicate Check] User ${user_id}`);
+        console.log(`[Duplicate Check] Existing records found:`, existingToday.length);
         
-        if (existingToday.length > 0) {
+        if (existingToday && existingToday.length > 0) {
+            console.log(`[Duplicate Check] First existing record:`, JSON.stringify(existingToday[0]));
+            
             // Return the earliest existing record so the frontend can display it
             const earliest = existingToday[0]; // already sorted ASC by timestamp
-            console.log(`[Duplicate Block] Rejecting duplicate scan for user ${user_id}. First scan at: ${earliest.timestamp}`);
+            console.log(`[Duplicate Block] ❌ REJECTING duplicate scan for user ${user_id}`);
+            console.log(`[Duplicate Block] First scan was at: ${earliest.timestamp}`);
+            
             return corsErrorResponse(
                 request,
                 `Absensi hari ini sudah tercatat pada ${earliest.timestamp}. Hanya absensi pertama yang diterima.`,
@@ -88,7 +93,7 @@ async function recordAttendance(request, env) {
             );
         }
 
-        console.log(`[Duplicate Check] User ${user_id} - No existing records, proceeding with scan`);
+        console.log(`[Duplicate Check] ✅ No existing records, proceeding with scan`);
         
         // Always set scan type to IN (Clock In only)
         const scanType = 'IN';
@@ -104,6 +109,8 @@ async function recordAttendance(request, env) {
         
         // Generate server-side timestamp (CRITICAL!)
         const serverTimestamp = getCurrentISOTimestamp();
+        console.log(`[Insert Attendance] Generated WIB timestamp: ${serverTimestamp}`);
+        console.log(`[Insert Attendance] Timestamp date part: ${serverTimestamp.substring(0, 10)}`);
         
         // Upload capture photo to R2
         const r2Key = `scans/${logId}.jpg`;
@@ -146,7 +153,10 @@ async function recordAttendance(request, env) {
         // Insert attendance log into database
         try {
             await insertAttendanceLog(env.DB, logData);
+            console.log(`[Insert Attendance] ✅ Successfully inserted attendance for user ${user_id}`);
+            console.log(`[Insert Attendance] Timestamp saved: ${serverTimestamp}`);
         } catch (error) {
+            console.error(`[Insert Attendance] ❌ Failed to insert:`, error);
             // Rollback: delete uploaded photo
             await deleteImage(env.ATTENDANCE_BUCKET, r2Key);
             
