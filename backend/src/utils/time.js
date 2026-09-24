@@ -5,40 +5,62 @@
  */
 
 /**
- * Get current timestamp in ISO 8601 format
- * This is the PRIMARY function for generating timestamps
+ * Time & Timezone Configuration
+ * ALL TIMESTAMPS IN WIB (UTC+7) - Jakarta Time
+ */
+const WIB_OFFSET_HOURS = 7;
+const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
+
+/**
+ * Get current timestamp in WIB (Jakarta Time)
+ * Returns ISO format string with WIB time
  * 
- * @returns {string} ISO 8601 timestamp (e.g., '2026-09-19T10:30:45.123Z')
+ * @returns {string} ISO 8601 timestamp in WIB (e.g., '2026-09-19T17:30:45.123+07:00')
  */
 function getCurrentISOTimestamp() {
-    return new Date().toISOString();
+    const now = new Date();
+    const wibTime = new Date(now.getTime() + WIB_OFFSET_MS);
+    
+    // Format as ISO with WIB timezone
+    const year = wibTime.getUTCFullYear();
+    const month = String(wibTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(wibTime.getUTCDate()).padStart(2, '0');
+    const hours = String(wibTime.getUTCHours()).padStart(2, '0');
+    const minutes = String(wibTime.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(wibTime.getUTCSeconds()).padStart(2, '0');
+    const ms = String(wibTime.getUTCMilliseconds()).padStart(3, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}+07:00`;
 }
 
 /**
- * Get current date in YYYY-MM-DD format
- * Useful for date-based queries
+ * Get current date in YYYY-MM-DD format (WIB timezone)
  * 
  * @returns {string} Date string (e.g., '2026-09-19')
  */
 function getTodayDateString() {
     const now = new Date();
-    const year = now.getUTCFullYear();
-    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(now.getUTCDate()).padStart(2, '0');
+    const wibTime = new Date(now.getTime() + WIB_OFFSET_MS);
+    
+    const year = wibTime.getUTCFullYear();
+    const month = String(wibTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(wibTime.getUTCDate()).padStart(2, '0');
     
     return `${year}-${month}-${day}`;
 }
 
 /**
- * Get current time in HH:MM:SS format
+ * Get current time in HH:MM:SS format (WIB timezone)
  * 
- * @returns {string} Time string (e.g., '10:30:45')
+ * @returns {string} Time string (e.g., '17:30:45')
  */
 function getCurrentTimeString() {
     const now = new Date();
-    const hours = String(now.getUTCHours()).padStart(2, '0');
-    const minutes = String(now.getUTCMinutes()).padStart(2, '0');
-    const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+    const wibTime = new Date(now.getTime() + WIB_OFFSET_MS);
+    
+    const hours = String(wibTime.getUTCHours()).padStart(2, '0');
+    const minutes = String(wibTime.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(wibTime.getUTCSeconds()).padStart(2, '0');
     
     return `${hours}:${minutes}:${seconds}`;
 }

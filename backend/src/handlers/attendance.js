@@ -75,9 +75,12 @@ async function recordAttendance(request, env) {
         
         // Block duplicate attendance on the same day — keep the earliest scan
         const existingToday = await getTodayAttendance(env.DB, user_id);
+        console.log(`[Duplicate Check] User ${user_id} - Existing records today:`, existingToday.length);
+        
         if (existingToday.length > 0) {
             // Return the earliest existing record so the frontend can display it
             const earliest = existingToday[0]; // already sorted ASC by timestamp
+            console.log(`[Duplicate Block] Rejecting duplicate scan for user ${user_id}. First scan at: ${earliest.timestamp}`);
             return corsErrorResponse(
                 request,
                 `Absensi hari ini sudah tercatat pada ${earliest.timestamp}. Hanya absensi pertama yang diterima.`,
@@ -85,6 +88,8 @@ async function recordAttendance(request, env) {
             );
         }
 
+        console.log(`[Duplicate Check] User ${user_id} - No existing records, proceeding with scan`);
+        
         // Always set scan type to IN (Clock In only)
         const scanType = 'IN';
         

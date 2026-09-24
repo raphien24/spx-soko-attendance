@@ -183,16 +183,22 @@ async function insertAttendanceLog(db, logData) {
 
 /**
  * Get today's attendance for a specific user
+ * Uses WIB (UTC+7) timezone for date matching
+ * 
  * @param {D1Database} db 
  * @param {string} userId - User UUID
  * @returns {Promise<Array>} Array of attendance logs for today
  */
 async function getTodayAttendance(db, userId) {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    // Get current date in WIB timezone
+    const now = new Date();
+    const wibTime = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+    const today = wibTime.toISOString().split('T')[0]; // YYYY-MM-DD in WIB
     
+    // Extract date from timestamp using substr (first 10 characters = YYYY-MM-DD)
     const stmt = db.prepare(
         `SELECT * FROM attendance_logs 
-         WHERE user_id = ? AND date(timestamp) = ? 
+         WHERE user_id = ? AND substr(timestamp, 1, 10) = ? 
          ORDER BY timestamp ASC`
     );
     
@@ -202,12 +208,17 @@ async function getTodayAttendance(db, userId) {
 
 /**
  * Get all attendance logs for today
+ * Uses WIB (UTC+7) timezone for date matching
  * Joins with users table to get role information
+ * 
  * @param {D1Database} db 
  * @returns {Promise<Array>} Array of all today's logs
  */
 async function getAllTodayLogs(db) {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    // Get current date in WIB timezone
+    const now = new Date();
+    const wibTime = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+    const today = wibTime.toISOString().split('T')[0]; // YYYY-MM-DD in WIB
     
     const stmt = db.prepare(
         `SELECT 
@@ -215,7 +226,7 @@ async function getAllTodayLogs(db) {
             users.role
          FROM attendance_logs 
          LEFT JOIN users ON attendance_logs.user_id = users.id
-         WHERE date(attendance_logs.timestamp) = ? 
+         WHERE substr(attendance_logs.timestamp, 1, 10) = ? 
          ORDER BY attendance_logs.timestamp DESC`
     );
     
@@ -225,7 +236,9 @@ async function getAllTodayLogs(db) {
 
 /**
  * Get attendance logs within date range
+ * Uses substr for date extraction to work with WIB timestamps
  * Joins with users table to get role information
+ * 
  * @param {D1Database} db 
  * @param {string} startDate - YYYY-MM-DD
  * @param {string} endDate - YYYY-MM-DD
@@ -238,7 +251,8 @@ async function getAttendanceByDateRange(db, startDate, endDate) {
             users.role
          FROM attendance_logs 
          LEFT JOIN users ON attendance_logs.user_id = users.id
-         WHERE date(attendance_logs.timestamp) >= ? AND date(attendance_logs.timestamp) <= ? 
+         WHERE substr(attendance_logs.timestamp, 1, 10) >= ? 
+           AND substr(attendance_logs.timestamp, 1, 10) <= ? 
          ORDER BY attendance_logs.timestamp DESC`
     );
     
@@ -273,7 +287,7 @@ async function getUserAttendanceHistory(db, userId) {
 async function countUserLogsOnDate(db, userId, date) {
     const stmt = db.prepare(
         `SELECT COUNT(*) as count FROM attendance_logs 
-         WHERE user_id = ? AND date(timestamp) = ?`
+         WHERE user_id = ? AND substr(timestamp, 1, 10) = ?`
     );
     
     const result = await stmt.bind(userId, date).first();
@@ -282,16 +296,20 @@ async function countUserLogsOnDate(db, userId, date) {
 
 /**
  * Get user's last scan type for today
+ * Uses WIB timezone
  * @param {D1Database} db 
  * @param {string} userId 
  * @returns {Promise<string|null>} 'IN', 'OUT', or null
  */
 async function getLastScanTypeToday(db, userId) {
-    const today = new Date().toISOString().split('T')[0];
+    // Get current date in WIB timezone
+    const now = new Date();
+    const wibTime = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+    const today = wibTime.toISOString().split('T')[0];
     
     const stmt = db.prepare(
         `SELECT scan_type FROM attendance_logs 
-         WHERE user_id = ? AND date(timestamp) = ? 
+         WHERE user_id = ? AND substr(timestamp, 1, 10) = ? 
          ORDER BY timestamp DESC 
          LIMIT 1`
     );
