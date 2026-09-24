@@ -29,6 +29,7 @@ let deleteModal, deleteModalName, confirmDeleteBtn, cancelDeleteBtn;
 let notificationBar, notificationMessage;
 let currentTimeElement, currentDateElement;
 let dateRangeForm, startDateInput, endDateInput, filterBtn;
+let searchNameInput;
 let exportBtn, refreshBtn;
 let mobileSidebarToggle, mobileSidebar;
 
@@ -116,6 +117,8 @@ function getDOMElements() {
     endDateInput = document.getElementById('end-date');
     filterBtn = document.getElementById('filter-btn');
     
+    searchNameInput = document.getElementById('search-name');
+    
     exportBtn = document.getElementById('export-btn');
     refreshBtn = document.getElementById('refresh-btn');
     
@@ -196,6 +199,11 @@ function setupEventListeners() {
     
     if (dateRangeForm) {
         dateRangeForm.addEventListener('submit', handleDateRangeFilter);
+    }
+    
+    // Search name input listener
+    if (searchNameInput) {
+        searchNameInput.addEventListener('input', handleSearchName);
     }
     
     if (refreshBtn) {
@@ -401,7 +409,7 @@ function renderTodayAttendancePreview() {
         return;
     }
     
-    const recentRecords = todayAttendanceData.slice(-10).reverse();
+    const recentRecords = [...todayAttendanceData].reverse();
     recentRecords.forEach(record => {
         const row = document.createElement('tr');
         row.className = 'hover:bg-gray-50';
@@ -684,6 +692,9 @@ async function handleDateRangeFilter(e) {
             return wibDate >= startDate && wibDate <= endDate;
         });
 
+        // Clear search input when filtering by date
+        if (searchNameInput) searchNameInput.value = '';
+        
         renderRecordsTable(recordsData);
         hideLoading();
     } catch (error) {
@@ -691,6 +702,26 @@ async function handleDateRangeFilter(e) {
         errorLog('Failed to filter records', error);
         showNotification('Gagal memuat data: ' + getErrorMessage(error), 'error');
     }
+}
+
+/**
+ * Handle search name in records
+ */
+function handleSearchName() {
+    const searchTerm = searchNameInput.value.toLowerCase().trim();
+    
+    if (!searchTerm) {
+        // If search is empty, show all records
+        renderRecordsTable(recordsData);
+        return;
+    }
+    
+    // Filter records by name
+    const filteredData = recordsData.filter(record => 
+        record.name.toLowerCase().includes(searchTerm)
+    );
+    
+    renderRecordsTable(filteredData);
 }
 
 /**
