@@ -466,6 +466,8 @@ function updateStatus(status, name = '', detail = '') {
 function showSuccessNotification(data) {
     if (!notificationElement || !notificationContent) return;
     
+    console.log('[Success Notification] User role:', data.role);
+    
     notificationContent.classList.remove('bg-red-600', 'bg-red-500');
     notificationContent.classList.add('bg-green-500');
     
@@ -477,11 +479,13 @@ function showSuccessNotification(data) {
     }
     
     // Check if role is any type of Rider
-    const isRider = data.role && (
-        data.role.toLowerCase().includes('rider dedicated') ||
-        data.role.toLowerCase().includes('rider mitra') ||
-        data.role.toLowerCase().includes('rider plus')
-    );
+    const roleStr = (data.role || '').toLowerCase();
+    const isRider = roleStr.includes('rider dedicated') ||
+                    roleStr.includes('rider mitra') ||
+                    roleStr.includes('rider plus');
+    
+    console.log('[Rider Check] Role string:', roleStr);
+    console.log('[Rider Check] Is Rider:', isRider);
     
     const needsWarning = data.role === 'Rider Dedicated' || data.role === 'Driver Dedicated';
     
@@ -503,10 +507,12 @@ function showSuccessNotification(data) {
     
     // Show popup and redirect for Rider roles
     if (isRider) {
+        console.log('[Rider Check] Will show popup in 1.5s');
         setTimeout(() => {
             showRiderPretripPopup(data);
         }, 1500); // Show popup after notification
     } else {
+        console.log('[Rider Check] Not a rider, normal notification');
         // Normal notification hide for non-Rider
         setTimeout(() => {
             notificationContent.style.transform = 'scale(0)';
@@ -519,6 +525,8 @@ function showSuccessNotification(data) {
  * Show popup for Rider to fill pretrip form
  */
 function showRiderPretripPopup(data) {
+    console.log('[Popup] showRiderPretripPopup called for:', data.role);
+    
     // Hide success notification first
     if (notificationContent) {
         notificationContent.style.transform = 'scale(0)';
@@ -561,20 +569,25 @@ function showRiderPretripPopup(data) {
     `;
     
     document.body.appendChild(popup);
+    console.log('[Popup] Popup element added to DOM');
     
     // Button handlers
     const gotoBtn = document.getElementById('goto-pretrip-btn');
     const closeBtn = document.getElementById('close-popup-btn');
     
     if (gotoBtn) {
+        console.log('[Popup] Goto button found, adding listener');
         gotoBtn.addEventListener('click', () => {
+            console.log('[Popup] Goto button clicked, redirecting...');
             // Redirect to Google Form
             window.location.href = 'https://docs.google.com/forms/d/e/1FAIpQLSfY3Ne0kfEQqMyYIwOJGwArmMUqiU-1nnD78OFi1BzjL2JTFQ/viewform';
         });
     }
     
     if (closeBtn) {
+        console.log('[Popup] Close button found, adding listener');
         closeBtn.addEventListener('click', () => {
+            console.log('[Popup] Close button clicked');
             popup.style.animation = 'fadeOut 0.3s ease-in-out';
             setTimeout(() => {
                 popup.remove();
@@ -604,6 +617,7 @@ function showRiderPretripPopup(data) {
             }
         `;
         document.head.appendChild(style);
+        console.log('[Popup] CSS animations added');
     }
 }
 
