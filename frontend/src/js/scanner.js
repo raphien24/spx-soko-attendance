@@ -476,7 +476,15 @@ function showSuccessNotification(data) {
         notificationName.classList.remove('text-yellow-300');
     }
     
+    // Check if role is any type of Rider
+    const isRider = data.role && (
+        data.role.toLowerCase().includes('rider dedicated') ||
+        data.role.toLowerCase().includes('rider mitra') ||
+        data.role.toLowerCase().includes('rider plus')
+    );
+    
     const needsWarning = data.role === 'Rider Dedicated' || data.role === 'Driver Dedicated';
+    
     if (needsWarning) {
         notificationTime.innerHTML = `
             Clock ${data.scan_type} - ${formatTime(data.timestamp)}
@@ -493,10 +501,110 @@ function showSuccessNotification(data) {
     notificationElement.classList.remove('hidden');
     notificationContent.style.transform = 'scale(1)';
     
-    setTimeout(() => {
+    // Show popup and redirect for Rider roles
+    if (isRider) {
+        setTimeout(() => {
+            showRiderPretripPopup(data);
+        }, 1500); // Show popup after notification
+    } else {
+        // Normal notification hide for non-Rider
+        setTimeout(() => {
+            notificationContent.style.transform = 'scale(0)';
+            setTimeout(() => notificationElement.classList.add('hidden'), 300);
+        }, needsWarning ? 5000 : 3000);
+    }
+}
+
+/**
+ * Show popup for Rider to fill pretrip form
+ */
+function showRiderPretripPopup(data) {
+    // Hide success notification first
+    if (notificationContent) {
         notificationContent.style.transform = 'scale(0)';
-        setTimeout(() => notificationElement.classList.add('hidden'), 300);
-    }, needsWarning ? 5000 : 3000);
+        setTimeout(() => {
+            if (notificationElement) notificationElement.classList.add('hidden');
+        }, 300);
+    }
+    
+    // Create popup overlay
+    const popup = document.createElement('div');
+    popup.id = 'rider-pretrip-popup';
+    popup.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50';
+    popup.style.animation = 'fadeIn 0.3s ease-in-out';
+    
+    popup.innerHTML = `
+        <div class="bg-white rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl transform transition-all" 
+             style="animation: slideUp 0.3s ease-out;">
+            <div class="mb-6">
+                <div class="text-6xl mb-4">⚠️</div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Penting untuk ${data.role}!</h2>
+                <p class="text-lg text-red-600 font-bold mb-4">
+                    AGAR TIDAK ADA POTONGAN<br>
+                    WAJIB ISI PRETRIP SEBELUM AT
+                </p>
+                <p class="text-sm text-gray-600">
+                    Kamu akan diarahkan ke form Pre-Trip
+                </p>
+            </div>
+            
+            <button id="goto-pretrip-btn" 
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg">
+                📋 Isi Pre-Trip Sekarang
+            </button>
+            
+            <button id="close-popup-btn" 
+                    class="w-full mt-3 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-all">
+                Nanti Saja
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(popup);
+    
+    // Button handlers
+    const gotoBtn = document.getElementById('goto-pretrip-btn');
+    const closeBtn = document.getElementById('close-popup-btn');
+    
+    if (gotoBtn) {
+        gotoBtn.addEventListener('click', () => {
+            // Redirect to Google Form
+            window.location.href = 'https://docs.google.com/forms/d/e/1FAIpQLSfY3Ne0kfEQqMyYIwOJGwArmMUqiU-1nnD78OFi1BzjL2JTFQ/viewform';
+        });
+    }
+    
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            popup.style.animation = 'fadeOut 0.3s ease-in-out';
+            setTimeout(() => {
+                popup.remove();
+                // Resume scanner
+                isCooldown = false;
+                updateStatus('ready');
+            }, 300);
+        });
+    }
+    
+    // Add CSS animations
+    if (!document.getElementById('popup-animations')) {
+        const style = document.createElement('style');
+        style.id = 'popup-animations';
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; }
+            }
+            @keyframes slideUp {
+                from { transform: translateY(50px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
 }
 
 function showErrorNotification(message) {
