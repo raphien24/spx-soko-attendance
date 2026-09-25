@@ -30,7 +30,7 @@ let notificationBar, notificationMessage;
 let currentTimeElement, currentDateElement;
 let dateRangeForm, startDateInput, endDateInput, filterBtn;
 let searchNameInput, searchEmployeeInput;
-let exportBtn, refreshBtn;
+let exportBtn, exportRecordsBtn, refreshBtn;
 let mobileSidebarToggle, mobileSidebar;
 
 // Export Modal Elements
@@ -121,6 +121,7 @@ function getDOMElements() {
     searchEmployeeInput = document.getElementById('search-employee');
     
     exportBtn = document.getElementById('export-btn');
+    exportRecordsBtn = document.getElementById('export-records-btn');
     refreshBtn = document.getElementById('refresh-btn');
     
     mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
@@ -219,6 +220,9 @@ function setupEventListeners() {
     // Export Listeners
     if (exportBtn) {
         exportBtn.addEventListener('click', showExportModal);
+    }
+    if (exportRecordsBtn) {
+        exportRecordsBtn.addEventListener('click', handleExportRecords);
     }
     if (cancelExportBtn) {
         cancelExportBtn.addEventListener('click', hideExportModal);
@@ -754,6 +758,90 @@ function handleSearchEmployee() {
     );
     
     renderEmployeesTable(filteredData);
+}
+
+/**
+ * Handle export records to CSV
+ */
+function handleExportRecords() {
+    if (!recordsData || recordsData.length === 0) {
+        showNotification('Tidak ada data untuk di-export. Silakan filter tanggal terlebih dahulu.', 'error');
+        return;
+    }
+    
+    try {
+        // Get current displayed data (might be filtered by search)
+        const searchTerm = searchNameInput ? searchNameInput.value.toLowerCase().trim() : '';
+        let dataToExport = recordsData;
+        
+        if (searchTerm) {
+            dataToExport = recordsData.filter(record => 
+                record.name.toLowerCase().includes(searchTerm)
+            );
+        }
+        
+        if (dataToExport.length === 0) {
+            showNotification('Tidak ada data yang sesuai filter untuk di-export.', 'error');
+            return;
+        }
+        
+        // Prepare CSV content
+        const headers = ['Tanggal', 'Waktu', 'Employee ID', 'Nama', 'Jabatan', 'Status'];
+        const csvRows = [headers.join(',')];
+        
+        dataToExport.forEach(record => {
+            const date = formatDate(record.timestamp);
+            const time = formatTime(record.timestamp);
+            const employeeId = escapeCSV(record.employee_id);
+            const name = escapeCSV(record.name);
+            const role = escapeCSV(record.role || '-');
+            const status = record.scan_type;
+            
+            csvRows.push([date, time, employeeId, name, role, status].join(','));
+        });
+        
+        const csvContent = csvRows.join('\n');
+        
+        // Add BOM for Excel UTF-8 recognition
+        const BOM = '\uFEFF';
+        const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+        
+        // Create download link
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Generate filename with date range
+        const startDate = startDateInput.value || 'unknown';
+        const endDate = endDateInput.value || 'unknown';
+        const filename = `Riwayat_Absensi_${startDate}_to_${endDate}.csv`;
+        link.download = filename;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        showNotification(`Export berhasil! ${dataToExport.length} record di-download.`, 'success');
+        
+    } catch (error) {
+        errorLog('Export failed', error);
+        showNotification('Gagal export data: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Escape CSV special characters
+ */
+function escapeCSV(value) {
+    if (value === null || value === undefined) return '';
+    const stringValue = String(value);
+    // If contains comma, quote, or newline, wrap in quotes and escape quotes
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return '"' + stringValue.replace(/"/g, '""') + '"';
+    }
+    return stringValue;
 }
 
 /**
