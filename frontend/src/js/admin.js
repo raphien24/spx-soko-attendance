@@ -49,6 +49,7 @@ let todayAttendanceData = [];
 let allUsersData = [];
 let recordsData = [];
 let userToDelete = null;
+let autoRefreshInterval = null; // Auto-refresh timer
 
 /**
  * Initialize admin dashboard
@@ -63,6 +64,7 @@ async function init() {
         if (sessionStorage.getItem('admin_authenticated') === 'true') {
             if (pinModal) pinModal.classList.add('hidden');
             await loadDashboardData();
+            startAutoRefresh(); // Start auto-refresh untuk dashboard
         } else {
             if (pinModal) pinModal.classList.remove('hidden');
             // Menunggu admin memasukkan PIN yang benar sebelum memuat data
@@ -169,6 +171,7 @@ function setupEventListeners() {
                 pinInput.value = '';
                 // Muat data setelah PIN sukses
                 await loadDashboardData();
+                startAutoRefresh(); // Start auto-refresh setelah login
             } else {
                 pinError.classList.remove('hidden');
                 pinInput.value = '';
@@ -1043,6 +1046,44 @@ function startClock() {
     }
     updateClock();
     setInterval(updateClock, 1000);
+}
+
+/**
+ * Start auto-refresh for dashboard data
+ * Refreshes every 30 seconds to keep data current
+ */
+function startAutoRefresh() {
+    // Clear existing interval if any
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    // Refresh dashboard every 30 seconds
+    autoRefreshInterval = setInterval(async () => {
+        // Only refresh if on dashboard tab
+        if (currentTab === 'dashboard') {
+            debugLog('[Auto-Refresh] Refreshing dashboard data...');
+            try {
+                await loadDashboardData();
+                debugLog('[Auto-Refresh] Dashboard data refreshed successfully');
+            } catch (error) {
+                errorLog('[Auto-Refresh] Failed to refresh dashboard', error);
+            }
+        }
+    }, 30000); // 30 seconds
+    
+    debugLog('[Auto-Refresh] Started (every 30 seconds)');
+}
+
+/**
+ * Stop auto-refresh
+ */
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        debugLog('[Auto-Refresh] Stopped');
+    }
 }
 
 /**

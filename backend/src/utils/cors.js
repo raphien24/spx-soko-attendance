@@ -255,6 +255,10 @@ function corsResponse(request, data, status = 200) {
             status: status,
             headers: {
                 'Content-Type': 'application/json',
+                // Prevent browser caching
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+                'Pragma': 'no-cache',
+                'Expires': '0',
                 ...corsHeaders
             }
         }

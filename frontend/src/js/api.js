@@ -64,10 +64,18 @@ async function apiFetch(url, options = {}) {
 /**
  * GET request helper
  * @param {string} endpoint - API endpoint
+ * @param {boolean} bustCache - Add timestamp to prevent caching (default: true)
  * @returns {Promise<Object>} Response data
  */
-async function apiGet(endpoint) {
-    const url = getApiUrl(endpoint);
+async function apiGet(endpoint, bustCache = true) {
+    let url = getApiUrl(endpoint);
+    
+    // Add timestamp to prevent browser caching
+    if (bustCache) {
+        const separator = url.includes('?') ? '&' : '?';
+        url = `${url}${separator}_t=${Date.now()}`;
+    }
+    
     return apiFetch(url, { method: 'GET' });
 }
 
