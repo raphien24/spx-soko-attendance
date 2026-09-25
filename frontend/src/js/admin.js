@@ -1362,12 +1362,24 @@ function initEmployeeDataTab() {
     employeeDataBody = document.getElementById('employee-data-body');
     searchEmployeeDataInput = document.getElementById('search-employee-data');
     
+    // CSV upload elements
+    const csvUploadInput = document.getElementById('csv-upload-input');
+    const downloadTemplateBtn = document.getElementById('download-template-btn');
+    
     if (addEmployeeForm) {
         addEmployeeForm.addEventListener('submit', handleAddEmployee);
     }
     
     if (searchEmployeeDataInput) {
         searchEmployeeDataInput.addEventListener('input', handleSearchEmployeeData);
+    }
+    
+    if (csvUploadInput) {
+        csvUploadInput.addEventListener('change', handleCSVUpload);
+    }
+    
+    if (downloadTemplateBtn) {
+        downloadTemplateBtn.addEventListener('click', downloadCSVTemplate);
     }
 }
 
@@ -1396,10 +1408,9 @@ async function handleAddEmployee(e) {
     const employeeId = document.getElementById('new-employee-id').value.trim();
     const name = document.getElementById('new-employee-name').value.trim();
     const role = document.getElementById('new-employee-role').value;
-    const phone = document.getElementById('new-employee-phone').value.trim();
     
-    if (!employeeId || !name) {
-        showNotification('Employee ID dan Nama wajib diisi!', 'error');
+    if (!employeeId || !name || !role) {
+        showNotification('Employee ID, Nama, dan Role wajib diisi!', 'error');
         return;
     }
     
@@ -1409,8 +1420,7 @@ async function handleAddEmployee(e) {
         await addEmployee({
             employee_id: employeeId,
             name: name,
-            role: role,
-            phone: phone || null
+            role: role
         });
         
         hideLoading();
@@ -1457,14 +1467,13 @@ function renderEmployeeDataTable(data) {
         
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">${escapeHtml(emp.name)}</div>
-                <div class="text-sm text-gray-500">${escapeHtml(emp.employee_id)}</div>
+                <span class="text-sm font-medium text-gray-900">${escapeHtml(emp.employee_id)}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm font-medium text-gray-900">${escapeHtml(emp.name)}</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
                 <span class="text-sm text-gray-900">${escapeHtml(emp.role)}</span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <span class="text-sm text-gray-600">${escapeHtml(emp.phone || '-')}</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
                 ${statusBadge}
@@ -1521,6 +1530,167 @@ async function handleDeleteEmployee(employeeId, name) {
         errorLog('Failed to delete employee', error);
         showNotification('Gagal menghapus karyawan: ' + getErrorMessage(error), 'error');
     }
+}
+
+/**
+ * Download CSV template for bulk upload
+ */
+function downloadCSVTemplate() {
+    const csvContent = 'Employee ID,Nama,Role\n' +
+                       'EMP001,John Doe,Rider Dedicated\n' +
+                       'EMP002,Jane Smith,Rider Plus\n' +
+                       'EMP003,Bob Johnson,Driver Dedicated';
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'template_employee_upload.csv');
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showNotification('Template CSV berhasil diunduh!', 'success');
+}
+
+/**
+ * Handle CSV file upload
+ */
+async function handleCSVUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Show file info
+    const fileInfo = document.getElementById('csv-file-info');
+    if (fileInfo) {
+        fileInfo.textContent = `📄 File: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+        fileInfo.classList.remove('hidden');
+    }
+    
+    try {
+        const text = await file.text();
+        const employees = parseCSV(text);
+        
+        if (employees.length === 0) {
+            showNotification('File CSV kosong atau format tidak valid!', 'error');
+            return;
+        }
+        
+        // Confirm upload
+        const confirmed = confirm(
+            `Akan mengupload ${employees.length} karyawan.\n\n` +
+            `Preview:\n` +
+            employees.slice(0, 3).map(e => `- ${e.employee_id}: ${e.name} (${e.role})`).join('\n') +
+            (employees.length > 3 ? `\n... dan ${employees.length - 3} lainnya` : '') +
+            `\n\nLanjutkan?`
+        );
+        
+        if (!confirmed) {
+            event.target.value = ''; // Reset file input
+            return;
+        }
+        
+        // Show progress
+        const progressDiv = document.getElementById('csv-upload-progress');
+        const progressBar = document.getElementById('csv-progress-bar');
+        const progressText = document.getElementById('csv-progress-text');
+        
+        if (progressDiv) progressDiv.classList.remove('hidden');
+        if (progressBar) progressBar.style.width = '50%';
+        if (progressText) progressText.textContent = 'Mengupload...';
+        
+        // Upload
+        showLoading('Mengupload karyawan...');
+        const result = await bulkAddEmployees(employees);
+        hideLoading();
+        
+        // Hide progress
+        if (progressDiv) progressDiv.classList.add('hidden');
+        if (progressBar) progressBar.style.width = '0%';
+        
+        // Show result
+        let message = `Upload selesai!\n\n`;
+        message += `✅ Berhasil: ${result.success}\n`;
+        message += `❌ Gagal: ${result.failed}\n`;
+        
+        if (result.errors && result.errors.length > 0) {
+            message += `\nKesalahan:\n`;
+            result.errors.slice(0, 5).forEach(err => {
+                message += `- ${err.employee_id} (${err.name}): ${err.error}\n`;
+            });
+            if (result.errors.length > 5) {
+                message += `... dan ${result.errors.length - 5} kesalahan lainnya`;
+            }
+        }
+        
+        alert(message);
+        
+        if (result.success > 0) {
+            showNotification(`${result.success} karyawan berhasil ditambahkan!`, 'success');
+            await loadAllEmployeesData();
+        } else {
+            showNotification('Tidak ada karyawan yang berhasil ditambahkan', 'error');
+        }
+        
+    } catch (error) {
+        hideLoading();
+        errorLog('CSV upload failed', error);
+        showNotification('Gagal mengupload CSV: ' + getErrorMessage(error), 'error');
+    } finally {
+        // Reset file input
+        event.target.value = '';
+        const fileInfo = document.getElementById('csv-file-info');
+        if (fileInfo) {
+            fileInfo.classList.add('hidden');
+        }
+    }
+}
+
+/**
+ * Parse CSV text to employee array
+ */
+function parseCSV(text) {
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+    const employees = [];
+    const validRoles = ['Rider Dedicated', 'Rider Plus', 'Rider Mitra', 'Driver Dedicated', 'Driver Mitra'];
+    
+    // Skip header (first line)
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Simple CSV parsing (handles basic cases)
+        const parts = line.split(',').map(p => p.trim());
+        
+        if (parts.length < 3) continue; // Skip invalid lines
+        
+        const employeeId = parts[0];
+        const name = parts[1];
+        let role = parts[2];
+        
+        // Validate role
+        if (!validRoles.includes(role)) {
+            // Try to match partial role names
+            if (role.toLowerCase().includes('rider dedicated')) role = 'Rider Dedicated';
+            else if (role.toLowerCase().includes('rider plus')) role = 'Rider Plus';
+            else if (role.toLowerCase().includes('rider mitra')) role = 'Rider Mitra';
+            else if (role.toLowerCase().includes('driver dedicated')) role = 'Driver Dedicated';
+            else if (role.toLowerCase().includes('driver mitra')) role = 'Driver Mitra';
+            else role = 'Rider Dedicated'; // Default
+        }
+        
+        if (employeeId && name) {
+            employees.push({
+                employee_id: employeeId,
+                name: name,
+                role: role
+            });
+        }
+    }
+    
+    return employees;
 }
 
 // ============================================
@@ -1718,14 +1888,13 @@ function renderRosterTable(data, date) {
         
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">${escapeHtml(roster.employee_name)}</div>
-                <div class="text-sm text-gray-500">${escapeHtml(roster.employee_id)}</div>
+                <span class="text-sm font-medium text-gray-900">${escapeHtml(roster.employee_id)}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm font-medium text-gray-900">${escapeHtml(roster.employee_name)}</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
                 <span class="text-sm text-gray-900">${escapeHtml(roster.role || '-')}</span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <span class="text-sm text-gray-600">${escapeHtml(roster.phone || '-')}</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
                 ${statusBadge}

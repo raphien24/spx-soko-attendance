@@ -8,7 +8,8 @@ import {
     getAllEmployees,
     getEmployeeByEmployeeId,
     updateEmployee,
-    deleteEmployee
+    deleteEmployee,
+    bulkInsertEmployees
 } from '../db/queries.js';
 
 import {
@@ -43,12 +44,23 @@ async function addEmployee(request, env) {
         }
         
         // Validate required fields
-        const { employee_id, name, role, phone } = payload;
+        const { employee_id, name, role } = payload;
         
         if (!employee_id || !name) {
             return corsErrorResponse(
                 request,
                 'Missing required fields: employee_id, name',
+                400
+            );
+        }
+        
+        // Validate role
+        const validRoles = ['Rider Dedicated', 'Rider Plus', 'Rider Mitra', 'Driver Dedicated', 'Driver Mitra'];
+        const employeeRole = role || 'Rider Dedicated';
+        if (!validRoles.includes(employeeRole)) {
+            return corsErrorResponse(
+                request,
+                `Invalid role. Must be one of: ${validRoles.join(', ')}`,
                 400
             );
         }
@@ -68,8 +80,7 @@ async function addEmployee(request, env) {
             id: generateUUID(),
             employee_id,
             name,
-            role: role || 'rider',
-            phone: phone || null,
+            role: employeeRole,
             enrolled_status: 'not_enrolled', // Default to not enrolled
             user_id: null, // Will be set when user enrolls face
             created_at: getCurrentISOTimestamp()
@@ -88,7 +99,6 @@ async function addEmployee(request, env) {
                 employee_id: employeeData.employee_id,
                 name: employeeData.name,
                 role: employeeData.role,
-                phone: employeeData.phone,
                 enrolled_status: employeeData.enrolled_status,
                 created_at: employeeData.created_at
             }
@@ -162,7 +172,6 @@ async function updateEmployeeData(request, env, employeeId) {
         const updates = {};
         if (payload.name) updates.name = payload.name;
         if (payload.role) updates.role = payload.role;
-        if (payload.phone !== undefined) updates.phone = payload.phone;
         if (payload.enrolled_status) updates.enrolled_status = payload.enrolled_status;
         if (payload.user_id !== undefined) updates.user_id = payload.user_id;
         
@@ -222,9 +231,65 @@ async function removeEmployee(request, env, employeeId) {
     }
 }
 
+/**
+ * POST /api/employees/bulk
+ * Bulk upload employees from CSV
+ * 
+ * @param {Request} request 
+ * @param {Object} env 
+ * @returns {Response}
+ */
+async function bulkUploadEmployees(request, env) {
+    try {
+        let payload;
+        try {
+            payload = await request.json();
+        } catch (error) {
+            return corsErrorResponse(request, 'Invalid JSON payload', 400);
+        }
+        
+        const { employees } = payload;
+        
+        if (!employees || !Array.isArray(employees) || employees.length === 0) {
+            return corsErrorResponse(
+                request,
+                'Missing or invalid employees array',
+                400
+            );
+        }
+        
+        console.log(`[Employee] Starting bulk upload of ${employees.length} employees`);
+        
+        // Bulk insert
+        const results = await bulkInsertEmployees(env.DB, employees);
+        
+        console.log(`[Employee] Bulk upload completed: ${results.success} success, ${results.failed} failed`);
+        
+        return corsResponse(request, {
+            success: true,
+            message: `Bulk upload completed: ${results.success} added, ${results.failed} failed`,
+            data: {
+                total: employees.length,
+                success: results.success,
+                failed: results.failed,
+                errors: results.errors
+            }
+        }, 200);
+        
+    } catch (error) {
+        console.error('[Employee] Bulk upload failed:', error);
+        return corsErrorResponse(
+            request,
+            error.message || 'Failed to bulk upload employees',
+            500
+        );
+    }
+}
+
 export {
     addEmployee,
     listEmployees,
     updateEmployeeData,
-    removeEmployee
+    removeEmployee,
+    bulkUploadEmployees
 };

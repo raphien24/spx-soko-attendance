@@ -400,6 +400,7 @@ export {
     getAllEmployeesData,
     updateEmployeeInfo,
     deleteEmployeeData,
+    bulkAddEmployees,
     
     // Roster schedule
     createRosterSchedule,
@@ -459,6 +460,19 @@ async function deleteEmployeeData(employeeId) {
         return response;
     } catch (error) {
         errorLog('Failed to delete employee', error);
+        throw error;
+    }
+}
+
+async function bulkAddEmployees(employeesArray) {
+    try {
+        const response = await apiPost('/api/employees/bulk', {
+            employees: employeesArray
+        });
+        debugLog(`Bulk upload result: ${response.data.success} success, ${response.data.failed} failed`);
+        return response.data;
+    } catch (error) {
+        errorLog('Failed to bulk upload employees', error);
         throw error;
     }
 }

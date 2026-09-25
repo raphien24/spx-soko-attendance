@@ -38,7 +38,8 @@ import {
     addEmployee,
     listEmployees,
     updateEmployeeData,
-    removeEmployee
+    removeEmployee,
+    bulkUploadEmployees
 } from './handlers/employees.js';
 
 import {
@@ -173,6 +174,9 @@ async function handleRequest(request, env, ctx) {
         }
         
         // Employee endpoints
+        else if (pathname === '/api/employees/bulk' && method === 'POST') {
+            response = await bulkUploadEmployees(request, env);
+        }
         else if (pathname === '/api/employees' && method === 'POST') {
             response = await addEmployee(request, env);
         }

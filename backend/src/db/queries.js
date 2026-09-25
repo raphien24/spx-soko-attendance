@@ -424,6 +424,7 @@ export {
     getEmployeeByEmployeeId,
     updateEmployee,
     deleteEmployee,
+    bulkInsertEmployees,
     
     // Roster schedule queries
     insertRoster,
@@ -454,9 +455,16 @@ export {
  * @returns {Promise<Object>} Result object
  */
 async function insertEmployee(db, employeeData) {
+    const validRoles = ['Rider Dedicated', 'Rider Plus', 'Rider Mitra', 'Driver Dedicated', 'Driver Mitra'];
+    const role = employeeData.role || 'Rider Dedicated';
+    
+    if (!validRoles.includes(role)) {
+        throw new Error(`Invalid role: ${role}. Must be one of: ${validRoles.join(', ')}`);
+    }
+    
     const stmt = db.prepare(
-        `INSERT INTO employees (id, employee_id, name, role, phone, enrolled_status, user_id, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO employees (id, employee_id, name, role, enrolled_status, user_id, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
     );
     
     return await stmt
@@ -464,8 +472,7 @@ async function insertEmployee(db, employeeData) {
             employeeData.id,
             employeeData.employee_id,
             employeeData.name,
-            employeeData.role || 'rider',
-            employeeData.phone || null,
+            role,
             employeeData.enrolled_status || 'not_enrolled',
             employeeData.user_id || null,
             employeeData.created_at
@@ -506,6 +513,8 @@ async function getEmployeeByEmployeeId(db, employeeId) {
  * @returns {Promise<Object>} Result object
  */
 async function updateEmployee(db, employeeId, updates) {
+    const validRoles = ['Rider Dedicated', 'Rider Plus', 'Rider Mitra', 'Driver Dedicated', 'Driver Mitra'];
+    
     const fields = [];
     const values = [];
     
@@ -514,12 +523,11 @@ async function updateEmployee(db, employeeId, updates) {
         values.push(updates.name);
     }
     if (updates.role) {
+        if (!validRoles.includes(updates.role)) {
+            throw new Error(`Invalid role: ${updates.role}. Must be one of: ${validRoles.join(', ')}`);
+        }
         fields.push('role = ?');
         values.push(updates.role);
-    }
-    if (updates.phone !== undefined) {
-        fields.push('phone = ?');
-        values.push(updates.phone);
     }
     if (updates.enrolled_status) {
         fields.push('enrolled_status = ?');
@@ -550,6 +558,59 @@ async function updateEmployee(db, employeeId, updates) {
 async function deleteEmployee(db, employeeId) {
     const stmt = db.prepare(`DELETE FROM employees WHERE employee_id = ?`);
     return await stmt.bind(employeeId).run();
+}
+
+/**
+ * Bulk insert employees (for CSV upload)
+ * @param {D1Database} db 
+ * @param {Array<Object>} employeesData - Array of employee objects
+ * @returns {Promise<Object>} Result with success/failure counts
+ */
+async function bulkInsertEmployees(db, employeesData) {
+    const validRoles = ['Rider Dedicated', 'Rider Plus', 'Rider Mitra', 'Driver Dedicated', 'Driver Mitra'];
+    const results = {
+        success: 0,
+        failed: 0,
+        errors: []
+    };
+    
+    for (const employeeData of employeesData) {
+        try {
+            // Validate role
+            const role = employeeData.role || 'Rider Dedicated';
+            if (!validRoles.includes(role)) {
+                throw new Error(`Invalid role: ${role}`);
+            }
+            
+            // Check if employee_id already exists
+            const existing = await getEmployeeByEmployeeId(db, employeeData.employee_id);
+            if (existing) {
+                throw new Error(`Employee ID ${employeeData.employee_id} already exists`);
+            }
+            
+            // Insert employee
+            await insertEmployee(db, {
+                id: Date.now() + Math.random(), // Simple unique ID
+                employee_id: employeeData.employee_id,
+                name: employeeData.name,
+                role: role,
+                enrolled_status: employeeData.enrolled_status || 'not_enrolled',
+                user_id: null,
+                created_at: new Date().toISOString()
+            });
+            
+            results.success++;
+        } catch (error) {
+            results.failed++;
+            results.errors.push({
+                employee_id: employeeData.employee_id,
+                name: employeeData.name,
+                error: error.message
+            });
+        }
+    }
+    
+    return results;
 }
 
 // ============================================
