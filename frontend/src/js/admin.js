@@ -29,7 +29,7 @@ let deleteModal, deleteModalName, confirmDeleteBtn, cancelDeleteBtn;
 let notificationBar, notificationMessage;
 let currentTimeElement, currentDateElement;
 let dateRangeForm, startDateInput, endDateInput, filterBtn;
-let searchNameInput;
+let searchNameInput, searchEmployeeInput;
 let exportBtn, refreshBtn;
 let mobileSidebarToggle, mobileSidebar;
 
@@ -118,6 +118,7 @@ function getDOMElements() {
     filterBtn = document.getElementById('filter-btn');
     
     searchNameInput = document.getElementById('search-name');
+    searchEmployeeInput = document.getElementById('search-employee');
     
     exportBtn = document.getElementById('export-btn');
     refreshBtn = document.getElementById('refresh-btn');
@@ -204,6 +205,11 @@ function setupEventListeners() {
     // Search name input listener
     if (searchNameInput) {
         searchNameInput.addEventListener('input', handleSearchName);
+    }
+    
+    // Search employee input listener
+    if (searchEmployeeInput) {
+        searchEmployeeInput.addEventListener('input', handleSearchEmployee);
     }
     
     if (refreshBtn) {
@@ -352,6 +358,10 @@ async function loadEmployeesData() {
     try {
         showLoading('Memuat data karyawan...');
         allUsersData = await getAllUsers();
+        
+        // Clear search input when reloading
+        if (searchEmployeeInput) searchEmployeeInput.value = '';
+        
         renderEmployeesTable(allUsersData);
         hideLoading();
     } catch (error) {
@@ -722,6 +732,28 @@ function handleSearchName() {
     );
     
     renderRecordsTable(filteredData);
+}
+
+/**
+ * Handle search employee in employees tab
+ */
+function handleSearchEmployee() {
+    const searchTerm = searchEmployeeInput.value.toLowerCase().trim();
+    
+    if (!searchTerm) {
+        // If search is empty, show all employees
+        renderEmployeesTable(allUsersData);
+        return;
+    }
+    
+    // Filter employees by name, employee_id, or role
+    const filteredData = allUsersData.filter(employee => 
+        employee.name.toLowerCase().includes(searchTerm) ||
+        employee.employee_id.toLowerCase().includes(searchTerm) ||
+        employee.role.toLowerCase().includes(searchTerm)
+    );
+    
+    renderEmployeesTable(filteredData);
 }
 
 /**
