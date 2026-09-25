@@ -416,5 +416,277 @@ export {
     
     // Hub settings queries
     getHubSettings,
-    updateHubSettings
+    updateHubSettings,
+    
+    // Employee queries
+    insertEmployee,
+    getAllEmployees,
+    getEmployeeByEmployeeId,
+    updateEmployee,
+    deleteEmployee,
+    
+    // Roster schedule queries
+    insertRoster,
+    getRosterByDate,
+    getRosterByDateRange,
+    deleteRoster,
+    deleteRosterByDateAndEmployee,
+    getRosterWithAttendance,
+    isEmployeeRostered
 };
+
+// ============================================
+// EMPLOYEE QUERIES
+// ============================================
+
+/**
+ * Insert a new employee (enrolled or not enrolled)
+ * @param {D1Database} db 
+ * @param {Object} employeeData 
+ * @param {string} employeeData.id - UUID
+ * @param {string} employeeData.employee_id - Employee ID
+ * @param {string} employeeData.name - Full name
+ * @param {string} employeeData.role - Role (rider, driver, admin, etc.)
+ * @param {string} employeeData.phone - Phone number (optional)
+ * @param {string} employeeData.enrolled_status - 'enrolled' or 'not_enrolled'
+ * @param {string} employeeData.user_id - Link to users table if enrolled (nullable)
+ * @param {string} employeeData.created_at - ISO 8601 timestamp
+ * @returns {Promise<Object>} Result object
+ */
+async function insertEmployee(db, employeeData) {
+    const stmt = db.prepare(
+        `INSERT INTO employees (id, employee_id, name, role, phone, enrolled_status, user_id, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    
+    return await stmt
+        .bind(
+            employeeData.id,
+            employeeData.employee_id,
+            employeeData.name,
+            employeeData.role || 'rider',
+            employeeData.phone || null,
+            employeeData.enrolled_status || 'not_enrolled',
+            employeeData.user_id || null,
+            employeeData.created_at
+        )
+        .run();
+}
+
+/**
+ * Get all employees (enrolled + not enrolled)
+ * @param {D1Database} db 
+ * @returns {Promise<Array>} Array of employee objects
+ */
+async function getAllEmployees(db) {
+    const stmt = db.prepare(
+        `SELECT * FROM employees ORDER BY created_at DESC`
+    );
+    const result = await stmt.all();
+    return result.results || [];
+}
+
+/**
+ * Get employee by employee_id
+ * @param {D1Database} db 
+ * @param {string} employeeId - Employee ID
+ * @returns {Promise<Object|null>} Employee object or null
+ */
+async function getEmployeeByEmployeeId(db, employeeId) {
+    const stmt = db.prepare(`SELECT * FROM employees WHERE employee_id = ?`);
+    const result = await stmt.bind(employeeId).first();
+    return result;
+}
+
+/**
+ * Update employee data
+ * @param {D1Database} db 
+ * @param {string} employeeId - Employee ID
+ * @param {Object} updates - Fields to update
+ * @returns {Promise<Object>} Result object
+ */
+async function updateEmployee(db, employeeId, updates) {
+    const fields = [];
+    const values = [];
+    
+    if (updates.name) {
+        fields.push('name = ?');
+        values.push(updates.name);
+    }
+    if (updates.role) {
+        fields.push('role = ?');
+        values.push(updates.role);
+    }
+    if (updates.phone !== undefined) {
+        fields.push('phone = ?');
+        values.push(updates.phone);
+    }
+    if (updates.enrolled_status) {
+        fields.push('enrolled_status = ?');
+        values.push(updates.enrolled_status);
+    }
+    if (updates.user_id !== undefined) {
+        fields.push('user_id = ?');
+        values.push(updates.user_id);
+    }
+    
+    fields.push('updated_at = ?');
+    values.push(new Date().toISOString());
+    values.push(employeeId);
+    
+    const stmt = db.prepare(
+        `UPDATE employees SET ${fields.join(', ')} WHERE employee_id = ?`
+    );
+    
+    return await stmt.bind(...values).run();
+}
+
+/**
+ * Delete employee
+ * @param {D1Database} db 
+ * @param {string} employeeId - Employee ID
+ * @returns {Promise<Object>} Result object
+ */
+async function deleteEmployee(db, employeeId) {
+    const stmt = db.prepare(`DELETE FROM employees WHERE employee_id = ?`);
+    return await stmt.bind(employeeId).run();
+}
+
+// ============================================
+// ROSTER SCHEDULE QUERIES
+// ============================================
+
+/**
+ * Insert roster entry
+ * @param {D1Database} db 
+ * @param {Object} rosterData 
+ * @param {string} rosterData.id - UUID
+ * @param {string} rosterData.date - YYYY-MM-DD format
+ * @param {string} rosterData.employee_id - Employee ID
+ * @param {string} rosterData.employee_name - Employee name
+ * @param {string} rosterData.created_at - ISO 8601 timestamp
+ * @param {string} rosterData.created_by - Admin user (optional)
+ * @returns {Promise<Object>} Result object
+ */
+async function insertRoster(db, rosterData) {
+    const stmt = db.prepare(
+        `INSERT INTO roster_schedule (id, date, employee_id, employee_name, created_at, created_by) 
+         VALUES (?, ?, ?, ?, ?, ?)`
+    );
+    
+    return await stmt
+        .bind(
+            rosterData.id,
+            rosterData.date,
+            rosterData.employee_id,
+            rosterData.employee_name,
+            rosterData.created_at,
+            rosterData.created_by || null
+        )
+        .run();
+}
+
+/**
+ * Get roster by date
+ * @param {D1Database} db 
+ * @param {string} date - YYYY-MM-DD format
+ * @returns {Promise<Array>} Array of roster entries
+ */
+async function getRosterByDate(db, date) {
+    const stmt = db.prepare(
+        `SELECT * FROM roster_schedule WHERE date = ? ORDER BY employee_name ASC`
+    );
+    const result = await stmt.bind(date).all();
+    return result.results || [];
+}
+
+/**
+ * Get roster by date range
+ * @param {D1Database} db 
+ * @param {string} startDate - YYYY-MM-DD format
+ * @param {string} endDate - YYYY-MM-DD format
+ * @returns {Promise<Array>} Array of roster entries
+ */
+async function getRosterByDateRange(db, startDate, endDate) {
+    const stmt = db.prepare(
+        `SELECT * FROM roster_schedule 
+         WHERE date >= ? AND date <= ? 
+         ORDER BY date DESC, employee_name ASC`
+    );
+    const result = await stmt.bind(startDate, endDate).all();
+    return result.results || [];
+}
+
+/**
+ * Delete roster entry
+ * @param {D1Database} db 
+ * @param {string} rosterId - Roster UUID
+ * @returns {Promise<Object>} Result object
+ */
+async function deleteRoster(db, rosterId) {
+    const stmt = db.prepare(`DELETE FROM roster_schedule WHERE id = ?`);
+    return await stmt.bind(rosterId).run();
+}
+
+/**
+ * Delete roster by date and employee
+ * @param {D1Database} db 
+ * @param {string} date - YYYY-MM-DD
+ * @param {string} employeeId - Employee ID
+ * @returns {Promise<Object>} Result object
+ */
+async function deleteRosterByDateAndEmployee(db, date, employeeId) {
+    const stmt = db.prepare(
+        `DELETE FROM roster_schedule WHERE date = ? AND employee_id = ?`
+    );
+    return await stmt.bind(date, employeeId).run();
+}
+
+/**
+ * Get roster with attendance status for a specific date
+ * Returns roster with attendance info (clocked in or not)
+ * @param {D1Database} db 
+ * @param {string} date - YYYY-MM-DD format
+ * @returns {Promise<Array>} Array of roster entries with attendance status
+ */
+async function getRosterWithAttendance(db, date) {
+    const stmt = db.prepare(
+        `SELECT 
+            r.id as roster_id,
+            r.date,
+            r.employee_id,
+            r.employee_name,
+            e.role,
+            e.phone,
+            e.enrolled_status,
+            CASE 
+                WHEN a.id IS NOT NULL THEN 'clocked_in'
+                ELSE 'not_clocked_in'
+            END as attendance_status,
+            a.timestamp as clock_in_time
+         FROM roster_schedule r
+         LEFT JOIN employees e ON r.employee_id = e.employee_id
+         LEFT JOIN attendance_logs a ON r.employee_id = a.employee_id 
+             AND substr(a.timestamp, 1, 10) = r.date
+         WHERE r.date = ?
+         ORDER BY r.employee_name ASC`
+    );
+    
+    const result = await stmt.bind(date).all();
+    return result.results || [];
+}
+
+/**
+ * Check if employee is already in roster for a specific date
+ * @param {D1Database} db 
+ * @param {string} date - YYYY-MM-DD
+ * @param {string} employeeId - Employee ID
+ * @returns {Promise<boolean>} True if already rostered
+ */
+async function isEmployeeRostered(db, date, employeeId) {
+    const stmt = db.prepare(
+        `SELECT id FROM roster_schedule WHERE date = ? AND employee_id = ?`
+    );
+    const result = await stmt.bind(date, employeeId).first();
+    return !!result;
+}

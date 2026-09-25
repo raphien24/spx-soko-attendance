@@ -12,7 +12,19 @@ import {
     getAttendanceRecords,
     getHubLocation,
     updateHubLocation,
-    getErrorMessage
+    getErrorMessage,
+    // Employee management
+    addEmployee,
+    getAllEmployeesData,
+    updateEmployeeInfo,
+    deleteEmployeeData,
+    // Roster schedule
+    createRosterSchedule,
+    getRosterSchedule,
+    getRosterByDateRange,
+    deleteRosterEntry,
+    deleteRosterByDateEmployee,
+    checkRosterAttendance
 } from './api.js';
 
 import {
@@ -59,6 +71,10 @@ async function init() {
         getDOMElements();
         setupEventListeners();
         startClock();
+        
+        // Initialize new tabs
+        initEmployeeDataTab();
+        initRosterTab();
         
         // Cek status autentikasi PIN di sesi saat ini
         if (sessionStorage.getItem('admin_authenticated') === 'true') {
@@ -264,6 +280,8 @@ function switchTab(tabName) {
     if (attendanceTab) attendanceTab.classList.add('hidden');
     if (employeesTab) employeesTab.classList.add('hidden');
     if (recordsTab) recordsTab.classList.add('hidden');
+    if (employeeDataTab) employeeDataTab.classList.add('hidden');
+    if (rosterTab) rosterTab.classList.add('hidden');
     if (hubSettingsTab) hubSettingsTab.classList.add('hidden');
     
     switch(tabName) {
@@ -277,6 +295,14 @@ function switchTab(tabName) {
         case 'employees':
             if (employeesTab) employeesTab.classList.remove('hidden');
             loadEmployeesData();
+            break;
+        case 'employee-data':
+            if (employeeDataTab) employeeDataTab.classList.remove('hidden');
+            loadAllEmployeesData();
+            break;
+        case 'roster':
+            if (rosterTab) rosterTab.classList.remove('hidden');
+            loadEmployeesForRoster();
             break;
         case 'records':
             if (recordsTab) recordsTab.classList.remove('hidden');
@@ -1318,4 +1344,421 @@ async function handleGetCurrentGPS() {
         hideLoading();
         showNotification('❌ Gagal mendapatkan lokasi GPS: ' + error.message, 'error');
     }
+}
+
+// ============================================
+// EMPLOYEE DATA MANAGEMENT
+// ============================================
+
+let employeeDataTab, addEmployeeForm, employeeDataBody, searchEmployeeDataInput;
+let allEmployeesDataCache = [];
+
+/**
+ * Initialize employee data tab elements
+ */
+function initEmployeeDataTab() {
+    employeeDataTab = document.getElementById('employee-data-tab');
+    addEmployeeForm = document.getElementById('add-employee-form');
+    employeeDataBody = document.getElementById('employee-data-body');
+    searchEmployeeDataInput = document.getElementById('search-employee-data');
+    
+    if (addEmployeeForm) {
+        addEmployeeForm.addEventListener('submit', handleAddEmployee);
+    }
+    
+    if (searchEmployeeDataInput) {
+        searchEmployeeDataInput.addEventListener('input', handleSearchEmployeeData);
+    }
+}
+
+/**
+ * Load all employee data
+ */
+async function loadAllEmployeesData() {
+    try {
+        showLoading('Memuat data karyawan...');
+        allEmployeesDataCache = await getAllEmployeesData();
+        renderEmployeeDataTable(allEmployeesDataCache);
+        hideLoading();
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to load employee data', error);
+        showNotification('Gagal memuat data karyawan: ' + getErrorMessage(error), 'error');
+    }
+}
+
+/**
+ * Handle add employee form submission
+ */
+async function handleAddEmployee(e) {
+    e.preventDefault();
+    
+    const employeeId = document.getElementById('new-employee-id').value.trim();
+    const name = document.getElementById('new-employee-name').value.trim();
+    const role = document.getElementById('new-employee-role').value;
+    const phone = document.getElementById('new-employee-phone').value.trim();
+    
+    if (!employeeId || !name) {
+        showNotification('Employee ID dan Nama wajib diisi!', 'error');
+        return;
+    }
+    
+    try {
+        showLoading('Menambahkan karyawan...');
+        
+        await addEmployee({
+            employee_id: employeeId,
+            name: name,
+            role: role,
+            phone: phone || null
+        });
+        
+        hideLoading();
+        showNotification(`Karyawan ${name} berhasil ditambahkan!`, 'success');
+        
+        // Reset form
+        addEmployeeForm.reset();
+        
+        // Reload data
+        await loadAllEmployeesData();
+        
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to add employee', error);
+        showNotification('Gagal menambahkan karyawan: ' + getErrorMessage(error), 'error');
+    }
+}
+
+/**
+ * Render employee data table
+ */
+function renderEmployeeDataTable(data) {
+    if (!employeeDataBody) return;
+    employeeDataBody.innerHTML = '';
+    
+    if (data.length === 0) {
+        employeeDataBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                    Belum ada data karyawan
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    data.forEach(emp => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        
+        const statusBadge = emp.enrolled_status === 'enrolled' 
+            ? '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">✓ Enrolled</span>'
+            : '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">Belum Enrolled</span>';
+        
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">${escapeHtml(emp.name)}</div>
+                <div class="text-sm text-gray-500">${escapeHtml(emp.employee_id)}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-gray-900">${escapeHtml(emp.role)}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-gray-600">${escapeHtml(emp.phone || '-')}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                ${statusBadge}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button class="text-red-600 hover:text-red-900 delete-employee-btn" data-id="${emp.employee_id}" data-name="${escapeHtml(emp.name)}">
+                    Hapus
+                </button>
+            </td>
+        `;
+        
+        const deleteBtn = row.querySelector('.delete-employee-btn');
+        deleteBtn.addEventListener('click', () => handleDeleteEmployee(emp.employee_id, emp.name));
+        
+        employeeDataBody.appendChild(row);
+    });
+}
+
+/**
+ * Handle search employee data
+ */
+function handleSearchEmployeeData() {
+    const searchTerm = searchEmployeeDataInput.value.toLowerCase().trim();
+    
+    if (!searchTerm) {
+        renderEmployeeDataTable(allEmployeesDataCache);
+        return;
+    }
+    
+    const filtered = allEmployeesDataCache.filter(emp =>
+        emp.name.toLowerCase().includes(searchTerm) ||
+        emp.employee_id.toLowerCase().includes(searchTerm) ||
+        (emp.role && emp.role.toLowerCase().includes(searchTerm)) ||
+        (emp.phone && emp.phone.includes(searchTerm))
+    );
+    
+    renderEmployeeDataTable(filtered);
+}
+
+/**
+ * Handle delete employee
+ */
+async function handleDeleteEmployee(employeeId, name) {
+    if (!confirm(`Hapus karyawan ${name}?`)) return;
+    
+    try {
+        showLoading('Menghapus karyawan...');
+        await deleteEmployeeData(employeeId);
+        hideLoading();
+        showNotification(`Karyawan ${name} berhasil dihapus`, 'success');
+        await loadAllEmployeesData();
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to delete employee', error);
+        showNotification('Gagal menghapus karyawan: ' + getErrorMessage(error), 'error');
+    }
+}
+
+// ============================================
+// ROSTER SCHEDULE MANAGEMENT
+// ============================================
+
+let rosterTab, createRosterForm, rosterEmployeeSelect, rosterTableBody;
+let rosterDateInput, viewRosterDateInput, loadRosterBtn;
+let rosterSummary, rosterTotal, rosterClockedIn, rosterNotClocked;
+
+/**
+ * Initialize roster tab elements
+ */
+function initRosterTab() {
+    rosterTab = document.getElementById('roster-tab');
+    createRosterForm = document.getElementById('create-roster-form');
+    rosterEmployeeSelect = document.getElementById('roster-employee-select');
+    rosterTableBody = document.getElementById('roster-table-body');
+    rosterDateInput = document.getElementById('roster-date');
+    viewRosterDateInput = document.getElementById('view-roster-date');
+    loadRosterBtn = document.getElementById('load-roster-btn');
+    
+    rosterSummary = document.getElementById('roster-summary');
+    rosterTotal = document.getElementById('roster-total');
+    rosterClockedIn = document.getElementById('roster-clocked-in');
+    rosterNotClocked = document.getElementById('roster-not-clocked');
+    
+    // Set default dates (tomorrow for roster, today for view)
+    if (rosterDateInput) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        rosterDateInput.value = tomorrow.toISOString().split('T')[0];
+    }
+    
+    if (viewRosterDateInput) {
+        const today = new Date();
+        viewRosterDateInput.value = today.toISOString().split('T')[0];
+    }
+    
+    if (createRosterForm) {
+        createRosterForm.addEventListener('submit', handleCreateRoster);
+    }
+    
+    if (loadRosterBtn) {
+        loadRosterBtn.addEventListener('click', handleLoadRoster);
+    }
+}
+
+/**
+ * Load employees for roster selection
+ */
+async function loadEmployeesForRoster() {
+    try {
+        const employees = await getAllEmployeesData();
+        
+        if (rosterEmployeeSelect) {
+            rosterEmployeeSelect.innerHTML = '';
+            
+            if (employees.length === 0) {
+                rosterEmployeeSelect.innerHTML = '<option disabled>Belum ada karyawan</option>';
+                return;
+            }
+            
+            employees.forEach(emp => {
+                const option = document.createElement('option');
+                option.value = emp.employee_id;
+                option.textContent = `${emp.name} (${emp.employee_id}) - ${emp.role}`;
+                rosterEmployeeSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        errorLog('Failed to load employees for roster', error);
+    }
+}
+
+/**
+ * Handle create roster submission
+ */
+async function handleCreateRoster(e) {
+    e.preventDefault();
+    
+    const date = rosterDateInput.value;
+    const selectedOptions = Array.from(rosterEmployeeSelect.selectedOptions);
+    const employeeIds = selectedOptions.map(opt => opt.value);
+    
+    if (!date) {
+        showNotification('Pilih tanggal roster!', 'error');
+        return;
+    }
+    
+    if (employeeIds.length === 0) {
+        showNotification('Pilih minimal 1 karyawan!', 'error');
+        return;
+    }
+    
+    try {
+        showLoading(`Membuat roster untuk ${employeeIds.length} karyawan...`);
+        
+        const response = await createRosterSchedule(date, employeeIds);
+        
+        hideLoading();
+        
+        const { added, skipped, failed } = response.data;
+        
+        let message = `Roster berhasil dibuat!\n`;
+        message += `✓ ${added.length} karyawan ditambahkan\n`;
+        if (skipped.length > 0) message += `⚠ ${skipped.length} sudah di-roster sebelumnya\n`;
+        if (failed.length > 0) message += `✗ ${failed.length} gagal ditambahkan`;
+        
+        showNotification(message, 'success');
+        
+        // Reset selection
+        rosterEmployeeSelect.selectedIndex = -1;
+        
+        // Auto load the roster
+        viewRosterDateInput.value = date;
+        await handleLoadRoster();
+        
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to create roster', error);
+        showNotification('Gagal membuat roster: ' + getErrorMessage(error), 'error');
+    }
+}
+
+/**
+ * Handle load roster
+ */
+async function handleLoadRoster() {
+    const date = viewRosterDateInput.value;
+    
+    if (!date) {
+        showNotification('Pilih tanggal!', 'error');
+        return;
+    }
+    
+    try {
+        showLoading('Memuat roster...');
+        
+        const roster = await getRosterSchedule(date, true);
+        
+        hideLoading();
+        
+        renderRosterTable(roster, date);
+        
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to load roster', error);
+        showNotification('Gagal memuat roster: ' + getErrorMessage(error), 'error');
+    }
+}
+
+/**
+ * Render roster table with attendance status
+ */
+function renderRosterTable(data, date) {
+    if (!rosterTableBody) return;
+    
+    rosterTableBody.innerHTML = '';
+    
+    if (data.length === 0) {
+        rosterTableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                    Tidak ada roster untuk tanggal ${date}
+                </td>
+            </tr>
+        `;
+        
+        if (rosterSummary) rosterSummary.classList.add('hidden');
+        return;
+    }
+    
+    // Update summary
+    const clockedInCount = data.filter(r => r.attendance_status === 'clocked_in').length;
+    const notClockedCount = data.length - clockedInCount;
+    
+    if (rosterTotal) rosterTotal.textContent = data.length;
+    if (rosterClockedIn) rosterClockedIn.textContent = clockedInCount;
+    if (rosterNotClocked) rosterNotClocked.textContent = notClockedCount;
+    if (rosterSummary) rosterSummary.classList.remove('hidden');
+    
+    // Render rows
+    data.forEach(roster => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        
+        const statusBadge = roster.attendance_status === 'clocked_in'
+            ? '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">✓ Sudah Clock In</span>'
+            : '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">✗ Belum Clock In</span>';
+        
+        const clockInTime = roster.clock_in_time 
+            ? formatTime(roster.clock_in_time)
+            : '-';
+        
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">${escapeHtml(roster.employee_name)}</div>
+                <div class="text-sm text-gray-500">${escapeHtml(roster.employee_id)}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-gray-900">${escapeHtml(roster.role || '-')}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-gray-600">${escapeHtml(roster.phone || '-')}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                ${statusBadge}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                ${clockInTime}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button class="text-red-600 hover:text-red-900 delete-roster-btn" 
+                        data-id="${roster.roster_id}" 
+                        data-name="${escapeHtml(roster.employee_name)}">
+                    Hapus
+                </button>
+            </td>
+        `;
+        
+        const deleteBtn = row.querySelector('.delete-roster-btn');
+        deleteBtn.addEventListener('click', async () => {
+            if (confirm(`Hapus ${roster.employee_name} dari roster?`)) {
+                try {
+                    showLoading('Menghapus dari roster...');
+                    await deleteRosterEntry(roster.roster_id);
+                    hideLoading();
+                    showNotification('Berhasil dihapus dari roster', 'success');
+                    await handleLoadRoster();
+                } catch (error) {
+                    hideLoading();
+                    errorLog('Failed to delete roster', error);
+                    showNotification('Gagal menghapus: ' + getErrorMessage(error), 'error');
+                }
+            }
+        });
+        
+        rosterTableBody.appendChild(row);
+    });
 }

@@ -109,11 +109,25 @@
                     <span>Absensi Hari Ini</span>
                 </a>
                 
+                <a href="#employee-data" data-tab="employee-data" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-700 text-blue-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <span>Data Karyawan</span>
+                </a>
+                
+                <a href="#roster" data-tab="roster" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-700 text-blue-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <span>Roster Schedule</span>
+                </a>
+                
                 <a href="#employees" data-tab="employees" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-700 text-blue-100">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                     </svg>
-                    <span>Daftar Karyawan</span>
+                    <span>Karyawan Terdaftar</span>
                 </a>
                 
                 <a href="#records" data-tab="records" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-blue-700 text-blue-100">
@@ -446,6 +460,178 @@
                                     <tr>
                                         <td colspan="5" class="px-6 py-12 text-center text-gray-500">
                                             Pilih rentang tanggal dan klik Filter
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Employee Data Tab -->
+                <div id="employee-data-tab" class="tab-content hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">👥 Data Karyawan</h2>
+                    
+                    <!-- Add Employee Form -->
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">➕ Tambah Karyawan Baru</h3>
+                        
+                        <form id="add-employee-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Employee ID</label>
+                                <input type="text" id="new-employee-id" required 
+                                       placeholder="Contoh: 123456" 
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap</label>
+                                <input type="text" id="new-employee-name" required 
+                                       placeholder="Contoh: John Doe" 
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Role / Jabatan</label>
+                                <select id="new-employee-role" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="rider">Rider</option>
+                                    <option value="driver">Driver</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="warehouse">Warehouse</option>
+                                    <option value="other">Lainnya</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">No. Telepon (Opsional)</label>
+                                <input type="tel" id="new-employee-phone" 
+                                       placeholder="Contoh: 08123456789" 
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            
+                            <div class="md:col-span-2">
+                                <button type="submit" 
+                                        class="w-full md:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition cursor-pointer">
+                                    ➕ Tambah Karyawan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Employee List -->
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                            <h3 class="text-lg font-semibold text-gray-700">📋 Daftar Semua Karyawan</h3>
+                            
+                            <!-- Search -->
+                            <div class="w-full md:w-64">
+                                <input type="text" id="search-employee-data" 
+                                       placeholder="🔍 Cari nama, ID, role..." 
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telepon</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="employee-data-body" class="bg-white divide-y divide-gray-200">
+                                    <!-- Data will be populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Roster Schedule Tab -->
+                <div id="roster-tab" class="tab-content hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">📅 Roster Schedule</h2>
+                    
+                    <!-- Create Roster Form -->
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">➕ Buat Roster Baru</h3>
+                        
+                        <form id="create-roster-form">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal Roster</label>
+                                    <input type="date" id="roster-date" required 
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <p class="text-xs text-gray-500 mt-1">Biasanya dibuat H-1 (1 hari sebelumnya)</p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Pilih Karyawan</label>
+                                    <select id="roster-employee-select" multiple size="5"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <!-- Options will be populated by JavaScript -->
+                                    </select>
+                                    <p class="text-xs text-gray-500 mt-1">Tekan Ctrl (Windows) atau Cmd (Mac) untuk pilih banyak</p>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" 
+                                    class="w-full md:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition cursor-pointer">
+                                ✅ Submit Roster
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- View Roster -->
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                            <h3 class="text-lg font-semibold text-gray-700">📋 Lihat Roster</h3>
+                            
+                            <div class="flex gap-2 items-center">
+                                <input type="date" id="view-roster-date" 
+                                       class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <button id="load-roster-btn" 
+                                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition cursor-pointer">
+                                    📊 Load Roster
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Roster Summary -->
+                        <div id="roster-summary" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 hidden">
+                            <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                                <p class="text-sm text-gray-600">Total Di-Roster</p>
+                                <p id="roster-total" class="text-2xl font-bold text-blue-600">0</p>
+                            </div>
+                            <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
+                                <p class="text-sm text-gray-600">Sudah Clock In</p>
+                                <p id="roster-clocked-in" class="text-2xl font-bold text-green-600">0</p>
+                            </div>
+                            <div class="bg-red-50 rounded-lg p-4 border-l-4 border-red-500">
+                                <p class="text-sm text-gray-600">Belum Clock In</p>
+                                <p id="roster-not-clocked" class="text-2xl font-bold text-red-600">0</p>
+                            </div>
+                        </div>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telepon</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Absen</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Waktu Clock In</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="roster-table-body" class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                                            Pilih tanggal dan klik "Load Roster" untuk melihat data
                                         </td>
                                     </tr>
                                 </tbody>

@@ -395,8 +395,156 @@ export {
     getHubLocation,
     updateHubLocation,
     
+    // Employee management
+    addEmployee,
+    getAllEmployeesData,
+    updateEmployeeInfo,
+    deleteEmployeeData,
+    
+    // Roster schedule
+    createRosterSchedule,
+    getRosterSchedule,
+    getRosterByDateRange,
+    deleteRosterEntry,
+    deleteRosterByDateEmployee,
+    checkRosterAttendance,
+    
     // Utilities
     testConnection,
     getErrorMessage,
     retryApiCall
 };
+
+// ============================================
+// EMPLOYEE MANAGEMENT API
+// ============================================
+
+async function addEmployee(employeeData) {
+    try {
+        const response = await apiPost('/api/employees', employeeData);
+        debugLog('Employee added:', response.data);
+        return response;
+    } catch (error) {
+        errorLog('Failed to add employee', error);
+        throw error;
+    }
+}
+
+async function getAllEmployeesData() {
+    try {
+        const response = await apiGet('/api/employees');
+        debugLog(`Fetched ${response.count} employees`);
+        return response.data;
+    } catch (error) {
+        errorLog('Failed to fetch employees', error);
+        throw error;
+    }
+}
+
+async function updateEmployeeInfo(employeeId, updates) {
+    try {
+        const response = await apiPut(`/api/employees/${employeeId}`, updates);
+        debugLog('Employee updated:', employeeId);
+        return response;
+    } catch (error) {
+        errorLog('Failed to update employee', error);
+        throw error;
+    }
+}
+
+async function deleteEmployeeData(employeeId) {
+    try {
+        const response = await apiDelete(`/api/employees/${employeeId}`);
+        debugLog('Employee deleted:', employeeId);
+        return response;
+    } catch (error) {
+        errorLog('Failed to delete employee', error);
+        throw error;
+    }
+}
+
+// ============================================
+// ROSTER SCHEDULE API
+// ============================================
+
+async function createRosterSchedule(date, employeeIds) {
+    try {
+        const response = await apiPost('/api/roster', {
+            date,
+            employee_ids: employeeIds
+        });
+        debugLog('Roster created:', response.data);
+        return response;
+    } catch (error) {
+        errorLog('Failed to create roster', error);
+        throw error;
+    }
+}
+
+async function getRosterSchedule(date, withAttendance = true) {
+    try {
+        const params = withAttendance ? `?date=${date}&with_attendance=true` : `?date=${date}`;
+        const response = await apiGet(`/api/roster${params}`);
+        debugLog(`Fetched ${response.count} roster entries for ${date}`);
+        return response.data;
+    } catch (error) {
+        errorLog('Failed to fetch roster', error);
+        throw error;
+    }
+}
+
+async function getRosterByDateRange(startDate, endDate) {
+    try {
+        const response = await apiGet(`/api/roster?start_date=${startDate}&end_date=${endDate}`);
+        debugLog(`Fetched ${response.count} roster entries`);
+        return response.data;
+    } catch (error) {
+        errorLog('Failed to fetch roster range', error);
+        throw error;
+    }
+}
+
+async function deleteRosterEntry(rosterId) {
+    try {
+        const response = await apiDelete(`/api/roster/${rosterId}`);
+        debugLog('Roster entry deleted:', rosterId);
+        return response;
+    } catch (error) {
+        errorLog('Failed to delete roster entry', error);
+        throw error;
+    }
+}
+
+async function deleteRosterByDateEmployee(date, employeeId) {
+    try {
+        const response = await fetch(getApiUrl('/api/roster/by-date-employee'), {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ date, employee_id: employeeId })
+        });
+        
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to delete roster');
+        }
+        
+        debugLog('Roster deleted:', date, employeeId);
+        return data;
+    } catch (error) {
+        errorLog('Failed to delete roster by date/employee', error);
+        throw error;
+    }
+}
+
+async function checkRosterAttendance(date) {
+    try {
+        const response = await apiGet(`/api/roster/check-attendance?date=${date}`);
+        debugLog('Attendance check:', response.summary);
+        return response;
+    } catch (error) {
+        errorLog('Failed to check roster attendance', error);
+        throw error;
+    }
+}

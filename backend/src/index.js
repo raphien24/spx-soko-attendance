@@ -34,6 +34,21 @@ import {
     updateHubLocation
 } from './handlers/settings.js';
 
+import {
+    addEmployee,
+    listEmployees,
+    updateEmployeeData,
+    removeEmployee
+} from './handlers/employees.js';
+
+import {
+    createRoster,
+    getRoster,
+    removeRoster,
+    removeRosterByDateEmployee,
+    checkAttendance
+} from './handlers/roster.js';
+
 // Import CORS utilities
 import {
     handleCorsPreFlight,
@@ -155,6 +170,55 @@ async function handleRequest(request, env, ctx) {
         }
         else if (pathname === '/api/settings/hub-location' && method === 'PUT') {
             response = await updateHubLocation(request, env);
+        }
+        
+        // Employee endpoints
+        else if (pathname === '/api/employees' && method === 'POST') {
+            response = await addEmployee(request, env);
+        }
+        else if (pathname === '/api/employees' && method === 'GET') {
+            response = await listEmployees(request, env);
+        }
+        else if (pathname.startsWith('/api/employees/') && method === 'PUT') {
+            // PUT /api/employees/:employee_id
+            const employeeId = pathname.split('/')[3];
+            if (employeeId) {
+                response = await updateEmployeeData(request, env, employeeId);
+            } else {
+                response = corsErrorResponse(request, 'Employee ID is required', 400);
+            }
+        }
+        else if (pathname.startsWith('/api/employees/') && method === 'DELETE') {
+            // DELETE /api/employees/:employee_id
+            const employeeId = pathname.split('/')[3];
+            if (employeeId) {
+                response = await removeEmployee(request, env, employeeId);
+            } else {
+                response = corsErrorResponse(request, 'Employee ID is required', 400);
+            }
+        }
+        
+        // Roster endpoints
+        else if (pathname === '/api/roster' && method === 'POST') {
+            response = await createRoster(request, env);
+        }
+        else if (pathname === '/api/roster' && method === 'GET') {
+            response = await getRoster(request, env);
+        }
+        else if (pathname === '/api/roster/by-date-employee' && method === 'DELETE') {
+            response = await removeRosterByDateEmployee(request, env);
+        }
+        else if (pathname === '/api/roster/check-attendance' && method === 'GET') {
+            response = await checkAttendance(request, env);
+        }
+        else if (pathname.startsWith('/api/roster/') && method === 'DELETE') {
+            // DELETE /api/roster/:roster_id
+            const rosterId = pathname.split('/')[3];
+            if (rosterId && rosterId !== 'by-date-employee' && rosterId !== 'check-attendance') {
+                response = await removeRoster(request, env, rosterId);
+            } else {
+                response = corsErrorResponse(request, 'Roster ID is required', 400);
+            }
         }
         
         // Root endpoint
