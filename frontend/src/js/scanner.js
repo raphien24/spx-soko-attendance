@@ -551,9 +551,11 @@ function showRiderPretripPopup(data) {
                     AGAR TIDAK ADA POTONGAN<br>
                     WAJIB ISI PRETRIP SEBELUM AT
                 </p>
-                <p class="text-sm text-gray-600">
-                    Kamu akan diarahkan ke form Pre-Trip
+                <p class="text-sm text-gray-600 mb-2">
+                    Anda akan diarahkan ke form Pre-Trip dalam
                 </p>
+                <p id="countdown-timer" class="text-4xl font-bold text-blue-600">5</p>
+                <p class="text-xs text-gray-500 mt-2">detik</p>
             </div>
             
             <button id="goto-pretrip-btn" 
@@ -571,6 +573,24 @@ function showRiderPretripPopup(data) {
     document.body.appendChild(popup);
     console.log('[Popup] Popup element added to DOM');
     
+    const googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfY3Ne0kfEQqMyYIwOJGwArmMUqiU-1nnD78OFi1BzjL2JTFQ/viewform';
+    
+    // Countdown timer and auto-redirect
+    let countdown = 5;
+    const countdownElement = document.getElementById('countdown-timer');
+    const countdownInterval = setInterval(() => {
+        countdown--;
+        if (countdownElement) {
+            countdownElement.textContent = countdown;
+        }
+        
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            console.log('[Popup] Countdown finished, auto-redirecting...');
+            window.location.href = googleFormUrl;
+        }
+    }, 1000);
+    
     // Button handlers
     const gotoBtn = document.getElementById('goto-pretrip-btn');
     const closeBtn = document.getElementById('close-popup-btn');
@@ -578,16 +598,17 @@ function showRiderPretripPopup(data) {
     if (gotoBtn) {
         console.log('[Popup] Goto button found, adding listener');
         gotoBtn.addEventListener('click', () => {
-            console.log('[Popup] Goto button clicked, redirecting...');
-            // Redirect to Google Form
-            window.location.href = 'https://docs.google.com/forms/d/e/1FAIpQLSfY3Ne0kfEQqMyYIwOJGwArmMUqiU-1nnD78OFi1BzjL2JTFQ/viewform';
+            console.log('[Popup] Goto button clicked, redirecting immediately...');
+            clearInterval(countdownInterval);
+            window.location.href = googleFormUrl;
         });
     }
     
     if (closeBtn) {
         console.log('[Popup] Close button found, adding listener');
         closeBtn.addEventListener('click', () => {
-            console.log('[Popup] Close button clicked');
+            console.log('[Popup] Close button clicked, canceling redirect');
+            clearInterval(countdownInterval);
             popup.style.animation = 'fadeOut 0.3s ease-in-out';
             setTimeout(() => {
                 popup.remove();

@@ -231,6 +231,11 @@ async function getAllTodayLogs(db) {
     const wibTime = new Date(now.getTime() + (7 * 60 * 60 * 1000));
     const today = wibTime.toISOString().split('T')[0]; // YYYY-MM-DD in WIB
     
+    console.log(`[getAllTodayLogs] Current UTC time: ${now.toISOString()}`);
+    console.log(`[getAllTodayLogs] WIB time: ${wibTime.toISOString()}`);
+    console.log(`[getAllTodayLogs] Today (WIB): ${today}`);
+    console.log(`[getAllTodayLogs] Query: WHERE substr(timestamp, 1, 10) = '${today}'`);
+    
     const stmt = db.prepare(
         `SELECT 
             attendance_logs.*,
@@ -242,6 +247,15 @@ async function getAllTodayLogs(db) {
     );
     
     const result = await stmt.bind(today).all();
+    console.log(`[getAllTodayLogs] Found ${result.results ? result.results.length : 0} records`);
+    
+    if (result.results && result.results.length > 0) {
+        console.log(`[getAllTodayLogs] Sample timestamps:`);
+        result.results.slice(0, 3).forEach(r => {
+            console.log(`  - ${r.name}: ${r.timestamp} (date part: ${r.timestamp.substring(0, 10)})`);
+        });
+    }
+    
     return result.results || [];
 }
 
