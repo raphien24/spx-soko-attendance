@@ -379,12 +379,52 @@ async function loadAttendanceData() {
         showLoading('Memuat data absensi...');
         todayAttendanceData = await getTodayAttendance();
         renderAttendanceTable(todayAttendanceData);
+        
+        // Setup search functionality
+        setupAttendanceSearch();
+        
         hideLoading();
     } catch (error) {
         hideLoading();
         errorLog('Failed to load attendance data', error);
         showNotification('Gagal memuat data absensi: ' + getErrorMessage(error), 'error');
     }
+}
+
+/**
+ * Setup search functionality for attendance today
+ */
+function setupAttendanceSearch() {
+    const searchInput = document.getElementById('search-attendance-today');
+    if (!searchInput) return;
+    
+    // Clear previous value
+    searchInput.value = '';
+    
+    // Add input event listener
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        
+        if (!query) {
+            // If search is empty, show all data
+            renderAttendanceTable(todayAttendanceData);
+            return;
+        }
+        
+        // Filter data based on query
+        const filteredData = todayAttendanceData.filter(record => {
+            const name = (record.name || '').toLowerCase();
+            const employeeId = (record.employee_id || '').toLowerCase();
+            const role = (record.role || '').toLowerCase();
+            
+            return name.includes(query) || 
+                   employeeId.includes(query) || 
+                   role.includes(query);
+        });
+        
+        // Render filtered data
+        renderAttendanceTable(filteredData);
+    });
 }
 
 /**
