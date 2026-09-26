@@ -18,6 +18,7 @@ import {
     getAllEmployeesData,
     updateEmployeeInfo,
     deleteEmployeeData,
+    bulkAddEmployees,
     // Roster schedule
     createRosterSchedule,
     getRosterSchedule,
