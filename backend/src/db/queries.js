@@ -463,13 +463,12 @@ async function insertEmployee(db, employeeData) {
     }
     
     const stmt = db.prepare(
-        `INSERT INTO employees (id, employee_id, name, role, enrolled_status, user_id, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO employees (employee_id, name, role, enrolled_status, user_id, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?)`
     );
     
     return await stmt
         .bind(
-            employeeData.id,
             employeeData.employee_id,
             employeeData.name,
             role,
@@ -590,7 +589,6 @@ async function bulkInsertEmployees(db, employeesData) {
             
             // Insert employee
             await insertEmployee(db, {
-                id: Date.now() + Math.random(), // Simple unique ID
                 employee_id: employeeData.employee_id,
                 name: employeeData.name,
                 role: role,

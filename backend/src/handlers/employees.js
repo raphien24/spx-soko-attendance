@@ -77,7 +77,6 @@ async function addEmployee(request, env) {
         
         // Create employee data
         const employeeData = {
-            id: generateUUID(),
             employee_id,
             name,
             role: employeeRole,
@@ -87,7 +86,7 @@ async function addEmployee(request, env) {
         };
         
         // Insert to database
-        await insertEmployee(env.DB, employeeData);
+        const result = await insertEmployee(env.DB, employeeData);
         
         console.log(`[Employee] Added new employee: ${employee_id} - ${name}`);
         
@@ -95,7 +94,7 @@ async function addEmployee(request, env) {
             success: true,
             message: 'Employee added successfully',
             data: {
-                id: employeeData.id,
+                id: result.meta?.last_row_id || null,
                 employee_id: employeeData.employee_id,
                 name: employeeData.name,
                 role: employeeData.role,
