@@ -2266,62 +2266,8 @@ async function handleLoadRosterData() {
     }
 }
 
-/*
- * LEGACY FUNCTIONS - NOT USED ANYMORE (Replaced by district-based modal system)
- * Kept here for reference only
- */
-
-/*
-async function handleCreateRoster(e) {
-    e.preventDefault();
-    
-    const date = rosterDateInput.value;
-    const selectedOptions = Array.from(rosterEmployeeSelect.selectedOptions);
-    const employeeIds = selectedOptions.map(opt => opt.value);
-    
-    if (!date) {
-        showNotification('Pilih tanggal roster!', 'error');
-        return;
-    }
-    
-    if (employeeIds.length === 0) {
-        showNotification('Pilih minimal 1 karyawan!', 'error');
-        return;
-    }
-    
-    try {
-        showLoading(`Membuat roster untuk ${employeeIds.length} karyawan...`);
-        
-        const response = await createRosterSchedule(date, employeeIds);
-        
-        hideLoading();
-        
-        const { added, skipped, failed } = response.data;
-        
-        let message = `Roster berhasil dibuat!\n`;
-        message += `✓ ${added.length} karyawan ditambahkan\n`;
-        if (skipped.length > 0) message += `⚠ ${skipped.length} sudah di-roster sebelumnya\n`;
-        if (failed.length > 0) message += `✗ ${failed.length} gagal ditambahkan`;
-        
-        showNotification(message, 'success');
-        
-        // Reset selection
-        rosterEmployeeSelect.selectedIndex = -1;
-        
-        // Auto load the roster
-        viewRosterDateInput.value = date;
-        await handleLoadRoster();
-        
-    } catch (error) {
-        hideLoading();
-        errorLog('Failed to create roster', error);
-        showNotification('Gagal membuat roster: ' + getErrorMessage(error), 'error');
-    }
-}
-*/
-
 /**
- * Handle load roster (Legacy table view)
+ * Handle load roster (Legacy table view - kept for backward compatibility)
  */
 async function handleLoadRoster() {
     const date = viewRosterDateInput.value;
