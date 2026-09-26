@@ -1815,14 +1815,8 @@ function initRosterTab() {
         });
     }
     
-    // Close modal on outside click
-    if (modal) {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.classList.add('hidden');
-            }
-        });
-    }
+    // Disable close modal on outside click (removed for better UX)
+    // Users must explicitly click X or "Tambahkan yang Dipilih" button
     
     // Load all employees
     loadAllEmployeesForRoster();
