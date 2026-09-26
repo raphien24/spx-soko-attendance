@@ -2194,6 +2194,27 @@ async function handleSaveRoster() {
     try {
         showLoading('Menyimpan roster...');
         await createRosterSchedule(date, allEmployeeIds);
+        
+        // Save district mapping to localStorage
+        const districtMapping = {};
+        for (const role in selectedEmployees) {
+            if (typeof selectedEmployees[role] === 'object' && !Array.isArray(selectedEmployees[role])) {
+                districts.forEach(district => {
+                    if (selectedEmployees[role][district]) {
+                        selectedEmployees[role][district].forEach(emp => {
+                            districtMapping[emp.employee_id] = {
+                                district: district,
+                                role: role
+                            };
+                        });
+                    }
+                });
+            }
+        }
+        
+        // Store in localStorage with date as key
+        localStorage.setItem(`roster_district_${date}`, JSON.stringify(districtMapping));
+        
         hideLoading();
         showNotification(`Roster berhasil disimpan: ${allEmployeeIds.length} karyawan`, 'success');
     } catch (error) {
@@ -2221,11 +2242,6 @@ async function handleLoadRosterData() {
         // Extract roster data from response
         const roster = response.data?.rostered || [];
         
-        if (!roster || roster.length === 0) {
-            showNotification('Tidak ada roster untuk tanggal ini', 'info');
-            return;
-        }
-        
         // Clear current selection
         const districts = ['SOKO', 'RENGEL', 'GRABAGAN'];
         selectedEmployees = {
@@ -2236,11 +2252,24 @@ async function handleLoadRosterData() {
             'Rider Mitra': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] }
         };
         
+        if (roster.length === 0) {
+            // No roster found - just show empty columns (no notification)
+            renderRosterColumns();
+            updateSummary();
+            debugLog('No roster found for date:', date);
+            return;
+        }
+        
+        // Load district mapping from localStorage
+        const districtMappingStr = localStorage.getItem(`roster_district_${date}`);
+        const districtMapping = districtMappingStr ? JSON.parse(districtMappingStr) : {};
+        
         // Populate from loaded data
-        // Note: Since backend doesn't store district info, distribute evenly across SOKO by default
         roster.forEach(item => {
             const role = item.role;
-            const district = item.district || 'SOKO'; // Default to SOKO if no district info
+            // Get district from localStorage mapping, fallback to SOKO
+            const savedInfo = districtMapping[item.employee_id];
+            const district = savedInfo?.district || 'SOKO';
             
             if (!selectedEmployees[role]) {
                 selectedEmployees[role] = { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] };
@@ -2265,6 +2294,19 @@ async function handleLoadRosterData() {
     } catch (error) {
         hideLoading();
         errorLog('Failed to load roster', error);
+        
+        // Even on error, show empty columns
+        const districts = ['SOKO', 'RENGEL', 'GRABAGAN'];
+        selectedEmployees = {
+            'Rider Dedicated': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+            'Driver Dedicated': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+            'Driver Mitra': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+            'Rider Plus': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+            'Rider Mitra': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] }
+        };
+        renderRosterColumns();
+        updateSummary();
+        
         showNotification('Gagal memuat roster: ' + getErrorMessage(error), 'error');
     }
 }
