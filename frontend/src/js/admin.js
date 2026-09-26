@@ -1758,6 +1758,7 @@ async function handleSyncEmployees() {
 let rosterTab, rosterDateInput;
 let selectedEmployees = {}; // Track selected employees by role
 let allEmployeesCache = []; // Cache all employees
+let currentDistrict = ''; // Track current district being edited
 
 /**
  * Initialize roster tab elements
@@ -1793,7 +1794,8 @@ function initRosterTab() {
     addEmployeeBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             const role = e.target.getAttribute('data-role');
-            openEmployeeModal(role);
+            const district = e.target.getAttribute('data-district');
+            openEmployeeModal(role, district);
         });
     });
     
@@ -1816,13 +1818,13 @@ function initRosterTab() {
     // Load all employees
     loadAllEmployeesForRoster();
     
-    // Initialize empty roster
+    // Initialize empty roster with districts
     selectedEmployees = {
-        'Rider Dedicated': [],
-        'Driver Dedicated': [],
-        'Driver Mitra': [],
-        'Rider Plus': [],
-        'Rider Mitra': []
+        'Rider Dedicated': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+        'Driver Dedicated': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+        'Driver Mitra': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+        'Rider Plus': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+        'Rider Mitra': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] }
     };
 }
 
@@ -1842,12 +1844,19 @@ async function loadAllEmployeesForRoster() {
 /**
  * Open employee selection modal
  */
-function openEmployeeModal(role) {
+function openEmployeeModal(role, district) {
+    currentDistrict = district; // Store the district
     const modal = document.getElementById('employee-select-modal');
     const modalList = document.getElementById('modal-employee-list');
     const searchInput = document.getElementById('modal-search-employee');
+    const modalTitle = modal.querySelector('h3');
     
     if (!modal || !modalList) return;
+    
+    // Update modal title with district
+    if (modalTitle) {
+        modalTitle.textContent = `Pilih Karyawan - ${role} (${district})`;
+    }
     
     // Filter employees by role
     let filteredEmployees = allEmployeesCache;
@@ -1891,7 +1900,7 @@ function openEmployeeModal(role) {
     addBtn.type = 'button';
     addBtn.className = 'w-full mt-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg';
     addBtn.textContent = '✅ Tambahkan yang Dipilih';
-    addBtn.onclick = () => addSelectedEmployees(role);
+    addBtn.onclick = () => addSelectedEmployees(role, district);
     modalList.appendChild(addBtn);
     
     // Search functionality
@@ -1915,8 +1924,18 @@ function openEmployeeModal(role) {
  */
 function isEmployeeInRoster(employeeId) {
     for (const role in selectedEmployees) {
-        if (selectedEmployees[role].some(emp => emp.employee_id === employeeId)) {
-            return true;
+        if (typeof selectedEmployees[role] === 'object' && !Array.isArray(selectedEmployees[role])) {
+            // New structure with districts
+            for (const district in selectedEmployees[role]) {
+                if (selectedEmployees[role][district].some(emp => emp.employee_id === employeeId)) {
+                    return true;
+                }
+            }
+        } else if (Array.isArray(selectedEmployees[role])) {
+            // Old structure (backward compatibility)
+            if (selectedEmployees[role].some(emp => emp.employee_id === employeeId)) {
+                return true;
+            }
         }
     }
     return false;
@@ -1925,7 +1944,7 @@ function isEmployeeInRoster(employeeId) {
 /**
  * Add selected employees to roster
  */
-function addSelectedEmployees(targetRole) {
+function addSelectedEmployees(targetRole, targetDistrict) {
     const modal = document.getElementById('employee-select-modal');
     const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
     
@@ -1934,15 +1953,25 @@ function addSelectedEmployees(targetRole) {
         const name = cb.getAttribute('data-name');
         const role = cb.getAttribute('data-role');
         
+        // Initialize structure if needed
         if (!selectedEmployees[role]) {
-            selectedEmployees[role] = [];
+            selectedEmployees[role] = { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] };
         }
         
-        selectedEmployees[role].push({
-            employee_id: employeeId,
-            name: name,
-            role: role
-        });
+        // Ensure district structure exists
+        if (typeof selectedEmployees[role] === 'object' && !selectedEmployees[role][targetDistrict]) {
+            selectedEmployees[role][targetDistrict] = [];
+        }
+        
+        // Add to the specific district
+        if (typeof selectedEmployees[role] === 'object' && selectedEmployees[role][targetDistrict]) {
+            selectedEmployees[role][targetDistrict].push({
+                employee_id: employeeId,
+                name: name,
+                role: role,
+                district: targetDistrict
+            });
+        }
     });
     
     // Update UI
@@ -1952,62 +1981,99 @@ function addSelectedEmployees(targetRole) {
     // Close modal
     modal.classList.add('hidden');
     
-    showNotification(`${checkboxes.length} karyawan ditambahkan`, 'success');
+    showNotification(`${checkboxes.length} karyawan ditambahkan ke ${targetDistrict}`, 'success');
 }
 
 /**
  * Render roster columns with names
  */
 function renderRosterColumns() {
+    const districts = ['SOKO', 'RENGEL', 'GRABAGAN'];
+    
     // Rider Dedicated
-    const dedicatedList = document.getElementById('dedicated-list');
+    districts.forEach(district => {
+        const listId = `dedicated-${district.toLowerCase()}-list`;
+        const listElem = document.getElementById(listId);
+        if (listElem) {
+            const employees = selectedEmployees['Rider Dedicated']?.[district] || [];
+            listElem.innerHTML = renderEmployeeNames(employees, district);
+        }
+    });
+    
+    // Update Rider Dedicated count
     const dedicatedCount = document.getElementById('dedicated-count');
-    if (dedicatedList) {
-        dedicatedList.innerHTML = renderEmployeeNames(selectedEmployees['Rider Dedicated'] || []);
-        if (dedicatedCount) dedicatedCount.textContent = (selectedEmployees['Rider Dedicated'] || []).length;
+    if (dedicatedCount) {
+        const total = districts.reduce((sum, d) => sum + (selectedEmployees['Rider Dedicated']?.[d]?.length || 0), 0);
+        dedicatedCount.textContent = total;
     }
     
     // Driver (Dedicated + Mitra)
-    const driverList = document.getElementById('driver-list');
+    districts.forEach(district => {
+        const listId = `driver-${district.toLowerCase()}-list`;
+        const listElem = document.getElementById(listId);
+        if (listElem) {
+            const driverDed = selectedEmployees['Driver Dedicated']?.[district] || [];
+            const driverMitra = selectedEmployees['Driver Mitra']?.[district] || [];
+            const combined = [...driverDed, ...driverMitra];
+            listElem.innerHTML = renderEmployeeNames(combined, district);
+        }
+    });
+    
+    // Update Driver count
     const driverCount = document.getElementById('driver-count');
-    const driverEmployees = [
-        ...(selectedEmployees['Driver Dedicated'] || []),
-        ...(selectedEmployees['Driver Mitra'] || [])
-    ];
-    if (driverList) {
-        driverList.innerHTML = renderEmployeeNames(driverEmployees);
-        if (driverCount) driverCount.textContent = driverEmployees.length;
+    if (driverCount) {
+        const totalDed = districts.reduce((sum, d) => sum + (selectedEmployees['Driver Dedicated']?.[d]?.length || 0), 0);
+        const totalMitra = districts.reduce((sum, d) => sum + (selectedEmployees['Driver Mitra']?.[d]?.length || 0), 0);
+        driverCount.textContent = totalDed + totalMitra;
     }
     
     // Rider Plus
-    const plusList = document.getElementById('plus-list');
+    districts.forEach(district => {
+        const listId = `plus-${district.toLowerCase()}-list`;
+        const listElem = document.getElementById(listId);
+        if (listElem) {
+            const employees = selectedEmployees['Rider Plus']?.[district] || [];
+            listElem.innerHTML = renderEmployeeNames(employees, district);
+        }
+    });
+    
+    // Update Rider Plus count
     const plusCount = document.getElementById('plus-count');
-    if (plusList) {
-        plusList.innerHTML = renderEmployeeNames(selectedEmployees['Rider Plus'] || []);
-        if (plusCount) plusCount.textContent = (selectedEmployees['Rider Plus'] || []).length;
+    if (plusCount) {
+        const total = districts.reduce((sum, d) => sum + (selectedEmployees['Rider Plus']?.[d]?.length || 0), 0);
+        plusCount.textContent = total;
     }
     
     // Rider Mitra
-    const mitraList = document.getElementById('mitra-list');
+    districts.forEach(district => {
+        const listId = `mitra-${district.toLowerCase()}-list`;
+        const listElem = document.getElementById(listId);
+        if (listElem) {
+            const employees = selectedEmployees['Rider Mitra']?.[district] || [];
+            listElem.innerHTML = renderEmployeeNames(employees, district);
+        }
+    });
+    
+    // Update Rider Mitra count
     const mitraCount = document.getElementById('mitra-count');
-    if (mitraList) {
-        mitraList.innerHTML = renderEmployeeNames(selectedEmployees['Rider Mitra'] || []);
-        if (mitraCount) mitraCount.textContent = (selectedEmployees['Rider Mitra'] || []).length;
+    if (mitraCount) {
+        const total = districts.reduce((sum, d) => sum + (selectedEmployees['Rider Mitra']?.[d]?.length || 0), 0);
+        mitraCount.textContent = total;
     }
 }
 
 /**
  * Render employee names as HTML
  */
-function renderEmployeeNames(employees) {
+function renderEmployeeNames(employees, district) {
     if (employees.length === 0) {
-        return '<p class="text-sm text-gray-400 text-center py-4">Belum ada karyawan</p>';
+        return '<p class="text-xs text-gray-400 text-center py-2">Kosong</p>';
     }
     
     return employees.map(emp => `
-        <div class="flex items-center justify-between py-1 px-2 hover:bg-white hover:bg-opacity-50 rounded text-sm">
-            <span class="font-medium">${escapeHtml(emp.name)}</span>
-            <button class="text-red-500 hover:text-red-700 text-xs" onclick="removeFromRoster('${emp.employee_id}')">
+        <div class="flex items-center justify-between py-1 px-1 hover:bg-white hover:bg-opacity-70 rounded text-xs">
+            <span class="font-medium truncate">${escapeHtml(emp.name)}</span>
+            <button class="text-red-500 hover:text-red-700 ml-1" onclick="removeFromRoster('${emp.employee_id}', '${emp.role}', '${district || emp.district}')">
                 ✕
             </button>
         </div>
@@ -2017,10 +2083,25 @@ function renderEmployeeNames(employees) {
 /**
  * Remove employee from roster
  */
-function removeFromRoster(employeeId) {
-    for (const role in selectedEmployees) {
-        selectedEmployees[role] = selectedEmployees[role].filter(emp => emp.employee_id !== employeeId);
+function removeFromRoster(employeeId, role, district) {
+    if (!role || !district) {
+        // Fallback: search all roles and districts
+        for (const r in selectedEmployees) {
+            if (typeof selectedEmployees[r] === 'object' && !Array.isArray(selectedEmployees[r])) {
+                for (const d in selectedEmployees[r]) {
+                    selectedEmployees[r][d] = selectedEmployees[r][d].filter(emp => emp.employee_id !== employeeId);
+                }
+            } else if (Array.isArray(selectedEmployees[r])) {
+                selectedEmployees[r] = selectedEmployees[r].filter(emp => emp.employee_id !== employeeId);
+            }
+        }
+    } else {
+        // Remove from specific role and district
+        if (selectedEmployees[role] && selectedEmployees[role][district]) {
+            selectedEmployees[role][district] = selectedEmployees[role][district].filter(emp => emp.employee_id !== employeeId);
+        }
     }
+    
     renderRosterColumns();
     updateSummary();
 }
@@ -2035,9 +2116,36 @@ function updateSummary() {
     const ded2whElem = document.getElementById('summary-ded2wh');
     const ded4whElem = document.getElementById('summary-ded4wh');
     
-    const total = Object.values(selectedEmployees).reduce((sum, arr) => sum + arr.length, 0);
-    const ded2wh = (selectedEmployees['Rider Dedicated'] || []).length;
-    const ded4wh = (selectedEmployees['Driver Dedicated'] || []).length + (selectedEmployees['Driver Mitra'] || []).length;
+    let total = 0;
+    let ded2wh = 0;
+    let ded4wh = 0;
+    
+    const districts = ['SOKO', 'RENGEL', 'GRABAGAN'];
+    
+    // Count all employees
+    for (const role in selectedEmployees) {
+        if (typeof selectedEmployees[role] === 'object' && !Array.isArray(selectedEmployees[role])) {
+            // New structure with districts
+            districts.forEach(district => {
+                const count = selectedEmployees[role][district]?.length || 0;
+                total += count;
+                
+                if (role === 'Rider Dedicated') {
+                    ded2wh += count;
+                } else if (role === 'Driver Dedicated' || role === 'Driver Mitra') {
+                    ded4wh += count;
+                }
+            });
+        } else if (Array.isArray(selectedEmployees[role])) {
+            // Old structure (backward compatibility)
+            total += selectedEmployees[role].length;
+            if (role === 'Rider Dedicated') {
+                ded2wh += selectedEmployees[role].length;
+            } else if (role === 'Driver Dedicated' || role === 'Driver Mitra') {
+                ded4wh += selectedEmployees[role].length;
+            }
+        }
+    }
     
     if (totalElem) totalElem.textContent = total;
     if (clockedElem) clockedElem.textContent = '0'; // Will be updated after loading
@@ -2056,12 +2164,26 @@ async function handleSaveRoster() {
         return;
     }
     
-    // Collect all selected employee IDs
+    // Collect all selected employee IDs (flatten all districts)
     const allEmployeeIds = [];
+    const districts = ['SOKO', 'RENGEL', 'GRABAGAN'];
+    
     for (const role in selectedEmployees) {
-        selectedEmployees[role].forEach(emp => {
-            allEmployeeIds.push(emp.employee_id);
-        });
+        if (typeof selectedEmployees[role] === 'object' && !Array.isArray(selectedEmployees[role])) {
+            // New structure with districts
+            districts.forEach(district => {
+                if (selectedEmployees[role][district]) {
+                    selectedEmployees[role][district].forEach(emp => {
+                        allEmployeeIds.push(emp.employee_id);
+                    });
+                }
+            });
+        } else if (Array.isArray(selectedEmployees[role])) {
+            // Old structure (backward compatibility)
+            selectedEmployees[role].forEach(emp => {
+                allEmployeeIds.push(emp.employee_id);
+            });
+        }
     }
     
     if (allEmployeeIds.length === 0) {
@@ -2102,23 +2224,34 @@ async function handleLoadRosterData() {
         }
         
         // Clear current selection
+        const districts = ['SOKO', 'RENGEL', 'GRABAGAN'];
         selectedEmployees = {
-            'Rider Dedicated': [],
-            'Driver Dedicated': [],
-            'Driver Mitra': [],
-            'Rider Plus': [],
-            'Rider Mitra': []
+            'Rider Dedicated': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+            'Driver Dedicated': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+            'Driver Mitra': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+            'Rider Plus': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+            'Rider Mitra': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] }
         };
         
         // Populate from loaded data
+        // Note: Since backend doesn't store district info, distribute evenly across SOKO by default
         roster.forEach(item => {
-            if (!selectedEmployees[item.role]) {
-                selectedEmployees[item.role] = [];
+            const role = item.role;
+            const district = item.district || 'SOKO'; // Default to SOKO if no district info
+            
+            if (!selectedEmployees[role]) {
+                selectedEmployees[role] = { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] };
             }
-            selectedEmployees[item.role].push({
+            
+            if (!selectedEmployees[role][district]) {
+                selectedEmployees[role][district] = [];
+            }
+            
+            selectedEmployees[role][district].push({
                 employee_id: item.employee_id,
                 name: item.employee_name,
-                role: item.role
+                role: role,
+                district: district
             });
         });
         
