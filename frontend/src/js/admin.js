@@ -2215,8 +2215,11 @@ async function handleLoadRosterData() {
     
     try {
         showLoading('Memuat roster...');
-        const roster = await checkRosterAttendance(date);
+        const response = await checkRosterAttendance(date);
         hideLoading();
+        
+        // Extract roster data from response
+        const roster = response.data?.rostered || [];
         
         if (!roster || roster.length === 0) {
             showNotification('Tidak ada roster untuk tanggal ini', 'info');
