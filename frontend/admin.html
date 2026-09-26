@@ -617,6 +617,10 @@
                                         class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition">
                                     📋 Copy Roster Kemarin
                                 </button>
+                                <button id="export-image-btn" 
+                                        class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition">
+                                    📸 Export to Image
+                                </button>
                                 <button id="save-roster-btn" 
                                         class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition">
                                     💾 Simpan Roster
@@ -625,8 +629,15 @@
                         </div>
                     </div>
                     
-                    <!-- Roster Grid - 4 Columns -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                    <!-- Roster Grid - 4 Columns (Wrapped for export) -->
+                    <div id="roster-export-container" class="bg-white p-6 rounded-lg">
+                        <!-- Header for export -->
+                        <div id="roster-export-header" class="mb-4 text-center border-b-2 border-gray-300 pb-3" style="display: none;">
+                            <h2 class="text-2xl font-bold text-gray-800">Jadwal Rider/Driver SPX Soko</h2>
+                            <p id="roster-export-date" class="text-lg text-gray-600 mt-1"></p>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                         <!-- Column 1: Rider Dedicated -->
                         <div class="bg-blue-50 rounded-lg shadow-md border-2 border-blue-300">
                             <div class="bg-blue-500 text-white p-4 rounded-t-lg">
@@ -816,7 +827,7 @@
                         </div>
                     </div>
                     
-                    <!-- Summary Cards -->
+                    <!-- Summary Cards (Inside export container) -->
                     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                         <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
                             <p class="text-xs text-gray-600">Total Roster</p>
@@ -839,6 +850,8 @@
                             <p id="summary-ded4wh" class="text-xl font-bold text-gray-800">0</p>
                         </div>
                     </div>
+                    </div>
+                    <!-- End of roster-export-container -->
                     
                     <!-- Employee Selection Modal (Hidden by default) -->
                     <div id="employee-select-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -1094,6 +1107,8 @@
     </div>
     
     <!-- JavaScript Modules -->
+    <!-- html2canvas for export to image -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script type="module" src="src/js/admin.js?v=2024092403"></script>
     
 </body>

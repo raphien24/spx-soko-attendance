@@ -1770,6 +1770,7 @@ function initRosterTab() {
     
     const loadDataBtn = document.getElementById('load-roster-data-btn');
     const copyYesterdayBtn = document.getElementById('copy-yesterday-btn');
+    const exportImageBtn = document.getElementById('export-image-btn');
     const saveRosterBtn = document.getElementById('save-roster-btn');
     const addEmployeeBtns = document.querySelectorAll('.add-employee-btn');
     const closeModalBtn = document.getElementById('close-modal-btn');
@@ -1798,6 +1799,11 @@ function initRosterTab() {
     // Copy yesterday button
     if (copyYesterdayBtn) {
         copyYesterdayBtn.addEventListener('click', handleCopyYesterday);
+    }
+    
+    // Export to image button
+    if (exportImageBtn) {
+        exportImageBtn.addEventListener('click', handleExportToImage);
     }
     
     // Save roster button
@@ -2161,6 +2167,89 @@ function updateSummary() {
     if (pendingElem) pendingElem.textContent = total;
     if (ded2whElem) ded2whElem.textContent = ded2wh;
     if (ded4whElem) ded4whElem.textContent = ded4wh;
+}
+
+/**
+ * Handle export roster to image
+ */
+async function handleExportToImage() {
+    const date = rosterDateInput.value;
+    if (!date) {
+        showNotification('Pilih tanggal terlebih dahulu', 'error');
+        return;
+    }
+    
+    // Check if roster has data
+    let hasData = false;
+    const districts = ['SOKO', 'RENGEL', 'GRABAGAN'];
+    for (const role in selectedEmployees) {
+        if (typeof selectedEmployees[role] === 'object' && !Array.isArray(selectedEmployees[role])) {
+            districts.forEach(district => {
+                if (selectedEmployees[role][district] && selectedEmployees[role][district].length > 0) {
+                    hasData = true;
+                }
+            });
+        }
+    }
+    
+    if (!hasData) {
+        showNotification('Tidak ada roster untuk di-export. Silakan load atau buat roster terlebih dahulu.', 'error');
+        return;
+    }
+    
+    try {
+        showLoading('Membuat image...');
+        
+        const container = document.getElementById('roster-export-container');
+        const header = document.getElementById('roster-export-header');
+        const dateElement = document.getElementById('roster-export-date');
+        
+        // Show header for export
+        if (header) header.style.display = 'block';
+        
+        // Format date for display
+        const dateObj = new Date(date);
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const formattedDate = dateObj.toLocaleDateString('id-ID', options);
+        if (dateElement) dateElement.textContent = formattedDate;
+        
+        // Wait a bit for rendering
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Capture with html2canvas
+        const canvas = await html2canvas(container, {
+            backgroundColor: '#ffffff',
+            scale: 2, // Higher quality
+            logging: false,
+            useCORS: true,
+            allowTaint: true
+        });
+        
+        // Hide header after export
+        if (header) header.style.display = 'none';
+        
+        // Convert to blob and download
+        canvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const filename = `Roster_SPX_Soko_${date.replace(/-/g, '')}.png`;
+            
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            hideLoading();
+            showNotification(`✅ Roster berhasil di-export: ${filename}`, 'success');
+        });
+        
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to export roster to image', error);
+        showNotification('Gagal export roster: ' + error.message, 'error');
+    }
 }
 
 /**
