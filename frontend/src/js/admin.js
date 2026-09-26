@@ -2006,6 +2006,7 @@ let rosterTab, rosterDateInput;
 let selectedEmployees = {}; // Track selected employees by role
 let allEmployeesCache = []; // Cache all employees
 let currentDistrict = ''; // Track current district being edited
+let currentRosterAttendanceData = null; // Store roster attendance data for modal
 
 /**
  * Initialize roster tab elements
@@ -2021,6 +2022,22 @@ function initRosterTab() {
     const addEmployeeBtns = document.querySelectorAll('.add-employee-btn');
     const closeModalBtn = document.getElementById('close-modal-btn');
     const modal = document.getElementById('employee-select-modal');
+    
+    // Roster Pending Card Click Listener
+    const rosterPendingCard = document.getElementById('roster-pending-card');
+    if (rosterPendingCard) {
+        rosterPendingCard.addEventListener('click', showRosterPendingModal);
+    }
+    
+    // Roster Pending Modal Close Listeners
+    const closeRosterPendingModal = document.getElementById('close-roster-pending-modal');
+    const closeRosterPendingModalBtn = document.getElementById('close-roster-pending-modal-btn');
+    if (closeRosterPendingModal) {
+        closeRosterPendingModal.addEventListener('click', hideRosterPendingModal);
+    }
+    if (closeRosterPendingModalBtn) {
+        closeRosterPendingModalBtn.addEventListener('click', hideRosterPendingModal);
+    }
     
     // Set default date (tomorrow)
     if (rosterDateInput) {
@@ -2742,6 +2759,7 @@ async function handleLoadRosterData() {
             // No roster found - just show empty columns (no notification)
             renderRosterColumns();
             updateSummary();
+            currentRosterAttendanceData = response; // Store for modal
             debugLog('No roster found for date:', date);
             return;
         }
@@ -2775,6 +2793,7 @@ async function handleLoadRosterData() {
         
         renderRosterColumns();
         updateSummary(response); // Pass attendance data to updateSummary
+        currentRosterAttendanceData = response; // Store for modal
         
         showNotification(`Roster dimuat: ${roster.length} karyawan`, 'success');
     } catch (error) {
@@ -2795,6 +2814,141 @@ async function handleLoadRosterData() {
         
         showNotification('Gagal memuat roster: ' + getErrorMessage(error), 'error');
     }
+}
+
+/**
+ * Show roster pending modal (Belum Clock In)
+ */
+function showRosterPendingModal() {
+    if (!currentRosterAttendanceData || !currentRosterAttendanceData.data || !currentRosterAttendanceData.data.not_clocked_in) {
+        showNotification('Data roster belum tersedia. Silakan load roster terlebih dahulu.', 'error');
+        return;
+    }
+    
+    const modal = document.getElementById('roster-pending-modal');
+    if (!modal) return;
+    
+    const pendingEmployees = currentRosterAttendanceData.data.not_clocked_in || [];
+    const pendingCount = document.getElementById('roster-pending-count');
+    const pendingList = document.getElementById('roster-pending-list');
+    const dateLabel = document.getElementById('roster-pending-date-label');
+    
+    // Update date label
+    if (dateLabel && rosterDateInput) {
+        const selectedDate = new Date(rosterDateInput.value);
+        const formattedDate = selectedDate.toLocaleDateString('id-ID', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        dateLabel.textContent = `Tanggal: ${formattedDate}`;
+    }
+    
+    // Update count
+    if (pendingCount) {
+        pendingCount.textContent = pendingEmployees.length;
+    }
+    
+    // Render table
+    if (pendingList) {
+        renderRosterPendingList(pendingEmployees);
+    }
+    
+    // Setup search
+    setupRosterPendingSearch(pendingEmployees);
+    
+    // Show modal
+    modal.classList.remove('hidden');
+}
+
+/**
+ * Hide roster pending modal
+ */
+function hideRosterPendingModal() {
+    const modal = document.getElementById('roster-pending-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+/**
+ * Setup search for roster pending modal
+ */
+function setupRosterPendingSearch(employees) {
+    const searchInput = document.getElementById('search-roster-pending');
+    
+    if (!searchInput) return;
+    
+    // Clear previous value
+    searchInput.value = '';
+    
+    // Remove previous event listeners by cloning
+    const newSearchInput = searchInput.cloneNode(true);
+    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+    
+    newSearchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        
+        if (!query) {
+            // Re-render all employees
+            renderRosterPendingList(employees);
+            return;
+        }
+        
+        // Filter employees
+        const filtered = employees.filter(emp => {
+            const name = (emp.employee_name || '').toLowerCase();
+            const id = (emp.employee_id || '').toLowerCase();
+            const role = (emp.role || '').toLowerCase();
+            
+            return name.includes(query) || id.includes(query) || role.includes(query);
+        });
+        
+        // Render filtered list
+        renderRosterPendingList(filtered);
+    });
+}
+
+/**
+ * Render roster pending list
+ */
+function renderRosterPendingList(employees) {
+    const pendingList = document.getElementById('roster-pending-list');
+    if (!pendingList) return;
+    
+    pendingList.innerHTML = '';
+    
+    if (employees.length === 0) {
+        pendingList.innerHTML = `
+            <tr>
+                <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                    <svg class="w-12 h-12 mx-auto mb-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Semua karyawan roster sudah clock in! 🎉
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    employees.forEach((emp, index) => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        row.innerHTML = `
+            <td class="px-4 py-3 text-sm text-gray-900 text-center">${index + 1}</td>
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">${escapeHtml(emp.employee_id)}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${escapeHtml(emp.employee_name)}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(emp.role || '-')}</td>
+            <td class="px-4 py-3">
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                    ✗ Belum Clock In
+                </span>
+            </td>
+        `;
+        pendingList.appendChild(row);
+    });
 }
 
 /**
