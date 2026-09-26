@@ -2087,8 +2087,8 @@ function renderEmployeeNames(employees, district) {
     
     return employees.map(emp => `
         <div class="flex items-center justify-between py-1 px-1 hover:bg-white hover:bg-opacity-70 rounded text-xs">
-            <span class="font-medium truncate">${escapeHtml(emp.name)}</span>
-            <button class="text-red-500 hover:text-red-700 ml-1" onclick="removeFromRoster('${emp.employee_id}', '${emp.role}', '${district || emp.district}')">
+            <span class="font-medium flex-1 break-words pr-1">${escapeHtml(emp.name)}</span>
+            <button class="roster-delete-btn text-red-500 hover:text-red-700 ml-1 flex-shrink-0" onclick="removeFromRoster('${emp.employee_id}', '${emp.role}', '${district || emp.district}')">
                 ✕
             </button>
         </div>
@@ -2204,6 +2204,13 @@ async function handleExportToImage() {
         const header = document.getElementById('roster-export-header');
         const dateElement = document.getElementById('roster-export-date');
         
+        // Hide delete buttons and add buttons for export
+        const deleteButtons = container.querySelectorAll('.roster-delete-btn');
+        const addButtons = container.querySelectorAll('.add-employee-btn');
+        
+        deleteButtons.forEach(btn => btn.style.display = 'none');
+        addButtons.forEach(btn => btn.style.display = 'none');
+        
         // Show header for export
         if (header) header.style.display = 'block';
         
@@ -2214,7 +2221,7 @@ async function handleExportToImage() {
         if (dateElement) dateElement.textContent = formattedDate;
         
         // Wait a bit for rendering
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 200));
         
         // Capture with html2canvas
         const canvas = await html2canvas(container, {
@@ -2222,8 +2229,14 @@ async function handleExportToImage() {
             scale: 2, // Higher quality
             logging: false,
             useCORS: true,
-            allowTaint: true
+            allowTaint: true,
+            windowWidth: container.scrollWidth,
+            windowHeight: container.scrollHeight
         });
+        
+        // Show buttons back
+        deleteButtons.forEach(btn => btn.style.display = '');
+        addButtons.forEach(btn => btn.style.display = '');
         
         // Hide header after export
         if (header) header.style.display = 'none';
@@ -2249,6 +2262,13 @@ async function handleExportToImage() {
         hideLoading();
         errorLog('Failed to export roster to image', error);
         showNotification('Gagal export roster: ' + error.message, 'error');
+        
+        // Make sure to restore buttons if error occurs
+        const container = document.getElementById('roster-export-container');
+        const deleteButtons = container.querySelectorAll('.roster-delete-btn');
+        const addButtons = container.querySelectorAll('.add-employee-btn');
+        deleteButtons.forEach(btn => btn.style.display = '');
+        addButtons.forEach(btn => btn.style.display = '');
     }
 }
 
