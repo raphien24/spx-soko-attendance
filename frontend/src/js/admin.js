@@ -1380,16 +1380,6 @@ function formatTimestamp(isoTimestamp) {
 }
 
 /**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-/**
  * Format timestamp to time only in WIB
  */
 function formatTime(isoTimestamp) {
@@ -1441,6 +1431,7 @@ function formatDateForFilename(date) {
  * Escape HTML to prevent XSS
  */
 function escapeHtml(text) {
+    if (!text) return '';
     const map = {
         '&': '&amp;',
         '<': '&lt;',
