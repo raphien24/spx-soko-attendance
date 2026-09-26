@@ -2323,7 +2323,6 @@ async function handleCreateRoster(e) {
 /**
  * Handle load roster (Legacy table view)
  */
- */
 async function handleLoadRoster() {
     const date = viewRosterDateInput.value;
     
