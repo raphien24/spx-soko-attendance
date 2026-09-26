@@ -596,89 +596,191 @@
                 
                 <!-- Roster Schedule Tab -->
                 <div id="roster-tab" class="tab-content hidden">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">📅 Roster Schedule</h2>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">📅 Jadwal Rider/Driver</h2>
                     
-                    <!-- Create Roster Form -->
-                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                        <h3 class="text-lg font-semibold text-gray-700 mb-4">➕ Buat Roster Baru</h3>
-                        
-                        <form id="create-roster-form">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal Roster</label>
-                                    <input type="date" id="roster-date" required 
-                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                    <p class="text-xs text-gray-500 mt-1">Biasanya dibuat H-1 (1 hari sebelumnya)</p>
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Pilih Karyawan</label>
-                                    <select id="roster-employee-select" multiple size="5"
-                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                        <!-- Options will be populated by JavaScript -->
-                                    </select>
-                                    <p class="text-xs text-gray-500 mt-1">Tekan Ctrl (Windows) atau Cmd (Mac) untuk pilih banyak</p>
-                                </div>
+                    <!-- Date Selector -->
+                    <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+                        <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm font-medium text-gray-700">Tanggal Roster:</label>
+                                <input type="date" id="roster-date" required 
+                                       class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <span class="text-xs text-gray-500">(Biasanya dibuat H-1)</span>
                             </div>
                             
-                            <button type="submit" 
-                                    class="w-full md:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition cursor-pointer">
-                                ✅ Submit Roster
-                            </button>
-                        </form>
-                    </div>
-                    
-                    <!-- View Roster -->
-                    <div class="bg-white rounded-lg shadow-md p-6">
-                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-                            <h3 class="text-lg font-semibold text-gray-700">📋 Lihat Roster</h3>
-                            
-                            <div class="flex gap-2 items-center">
-                                <input type="date" id="view-roster-date" 
-                                       class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                <button id="load-roster-btn" 
-                                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition cursor-pointer">
-                                    📊 Load Roster
+                            <div class="flex gap-2">
+                                <button id="load-roster-data-btn" 
+                                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
+                                    📊 Load Data
+                                </button>
+                                <button id="save-roster-btn" 
+                                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition">
+                                    💾 Simpan Roster
                                 </button>
                             </div>
                         </div>
-                        
-                        <!-- Roster Summary -->
-                        <div id="roster-summary" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 hidden">
-                            <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
-                                <p class="text-sm text-gray-600">Total Di-Roster</p>
-                                <p id="roster-total" class="text-2xl font-bold text-blue-600">0</p>
+                    </div>
+                    
+                    <!-- Roster Grid - 4 Columns -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                        <!-- Column 1: Rider Dedicated -->
+                        <div class="bg-blue-50 rounded-lg shadow-md border-2 border-blue-300">
+                            <div class="bg-blue-500 text-white p-4 rounded-t-lg">
+                                <div class="flex justify-between items-center">
+                                    <h3 class="text-lg font-bold">Dedicated</h3>
+                                    <span id="dedicated-count" class="text-2xl font-bold">0</span>
+                                </div>
                             </div>
-                            <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
-                                <p class="text-sm text-gray-600">Sudah Clock In</p>
-                                <p id="roster-clocked-in" class="text-2xl font-bold text-green-600">0</p>
-                            </div>
-                            <div class="bg-red-50 rounded-lg p-4 border-l-4 border-red-500">
-                                <p class="text-sm text-gray-600">Belum Clock In</p>
-                                <p id="roster-not-clocked" class="text-2xl font-bold text-red-600">0</p>
+                            
+                            <div class="p-4">
+                                <div class="grid grid-cols-3 gap-2 mb-3">
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-gray-600">SOKO</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-gray-600">RENGEL</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-gray-600">GRABAGAN</p>
+                                    </div>
+                                </div>
+                                
+                                <div id="dedicated-list" class="space-y-1 min-h-[200px]">
+                                    <!-- Names will be populated here -->
+                                </div>
                             </div>
                         </div>
                         
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Absen</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Waktu Clock In</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="roster-table-body" class="bg-white divide-y divide-gray-200">
-                                    <tr>
-                                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-                                            Pilih tanggal dan klik "Load Roster" untuk melihat data
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <!-- Column 2: Driver Dedicated + Driver Mitra -->
+                        <div class="bg-green-50 rounded-lg shadow-md border-2 border-green-300">
+                            <div class="bg-green-500 text-white p-4 rounded-t-lg">
+                                <div class="flex justify-between items-center">
+                                    <h3 class="text-lg font-bold">Driver Dedicated + Mitra</h3>
+                                    <span id="driver-count" class="text-2xl font-bold">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="p-4">
+                                <div class="grid grid-cols-3 gap-2 mb-3">
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-gray-600">SOKO</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-gray-600">RENGEL</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-gray-600">GRABAGAN</p>
+                                    </div>
+                                </div>
+                                
+                                <div id="driver-list" class="space-y-1 min-h-[200px]">
+                                    <!-- Names will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Column 3: Rider Plus -->
+                        <div class="bg-yellow-50 rounded-lg shadow-md border-2 border-yellow-300">
+                            <div class="bg-yellow-500 text-white p-4 rounded-t-lg">
+                                <div class="flex justify-between items-center">
+                                    <h3 class="text-lg font-bold">Rider Plus</h3>
+                                    <span id="plus-count" class="text-2xl font-bold">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="p-4">
+                                <div class="grid grid-cols-3 gap-2 mb-3">
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-gray-600">SOKO</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-gray-600">RENGEL</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-gray-600">GRABAGAN</p>
+                                    </div>
+                                </div>
+                                
+                                <div id="plus-list" class="space-y-1 min-h-[200px]">
+                                    <!-- Names will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Column 4: Rider Mitra (Mitra Rider 2WH) -->
+                        <div class="bg-orange-50 rounded-lg shadow-md border-2 border-orange-300">
+                            <div class="bg-orange-500 text-white p-4 rounded-t-lg">
+                                <div class="flex justify-between items-center">
+                                    <h3 class="text-lg font-bold">Mitra Rider 2WH</h3>
+                                    <span id="mitra-count" class="text-2xl font-bold">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="p-4">
+                                <div class="grid grid-cols-3 gap-2 mb-3">
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-gray-600">SOKO</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-gray-600">RENGEL</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-gray-600">GRABAGAN</p>
+                                    </div>
+                                </div>
+                                
+                                <div id="mitra-list" class="space-y-1 min-h-[200px]">
+                                    <!-- Names will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                        <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
+                            <p class="text-xs text-gray-600">Total Roster</p>
+                            <p id="summary-total" class="text-2xl font-bold text-gray-800">0</p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-green-500">
+                            <p class="text-xs text-gray-600">Sudah Clock In</p>
+                            <p id="summary-clocked" class="text-2xl font-bold text-green-600">0</p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-red-500">
+                            <p class="text-xs text-gray-600">Belum Clock In</p>
+                            <p id="summary-pending" class="text-2xl font-bold text-red-600">0</p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-yellow-500">
+                            <p class="text-xs text-gray-600">Ded 2WH</p>
+                            <p id="summary-ded2wh" class="text-xl font-bold text-gray-800">0</p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-purple-500">
+                            <p class="text-xs text-gray-600">Ded 4WH</p>
+                            <p id="summary-ded4wh" class="text-xl font-bold text-gray-800">0</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Employee Selection Modal (Hidden by default) -->
+                    <div id="employee-select-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold">Pilih Karyawan</h3>
+                                <button id="close-modal-btn" class="text-gray-500 hover:text-gray-700">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <input type="text" id="modal-search-employee" 
+                                       placeholder="🔍 Cari nama atau ID..." 
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            
+                            <div id="modal-employee-list" class="space-y-2">
+                                <!-- Employee checkboxes will be populated here -->
+                            </div>
                         </div>
                     </div>
                 </div>
