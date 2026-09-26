@@ -1769,7 +1769,6 @@ function initRosterTab() {
     rosterDateInput = document.getElementById('roster-date');
     
     const loadDataBtn = document.getElementById('load-roster-data-btn');
-    const checkAttendanceBtn = document.getElementById('check-attendance-btn');
     const copyYesterdayBtn = document.getElementById('copy-yesterday-btn');
     const exportImageBtn = document.getElementById('export-image-btn');
     const saveRosterBtn = document.getElementById('save-roster-btn');
@@ -1795,11 +1794,6 @@ function initRosterTab() {
     // Load data button (keep for manual refresh)
     if (loadDataBtn) {
         loadDataBtn.addEventListener('click', handleLoadRosterData);
-    }
-    
-    // Check attendance button
-    if (checkAttendanceBtn) {
-        checkAttendanceBtn.addEventListener('click', handleCheckAttendance);
     }
     
     // Copy yesterday button
@@ -1832,15 +1826,7 @@ function initRosterTab() {
             modal.classList.add('hidden');
         });
     }
-    
-    // Close attendance modal
-    const closeAttendanceModalBtn = document.getElementById('close-attendance-modal-btn');
-    if (closeAttendanceModalBtn) {
-        closeAttendanceModalBtn.addEventListener('click', () => {
-            const attendanceModal = document.getElementById('attendance-check-modal');
-            if (attendanceModal) attendanceModal.classList.add('hidden');
-        });
-    }
+
     
     // Disable close modal on outside click (removed for better UX)
     // Users must explicitly click X or "Tambahkan yang Dipilih" button
@@ -2139,7 +2125,7 @@ function removeFromRoster(employeeId, role, district) {
 /**
  * Update summary cards
  */
-function updateSummary() {
+function updateSummary(attendanceData = null) {
     const totalElem = document.getElementById('summary-total');
     const clockedElem = document.getElementById('summary-clocked');
     const pendingElem = document.getElementById('summary-pending');
@@ -2178,98 +2164,21 @@ function updateSummary() {
     }
     
     if (totalElem) totalElem.textContent = total;
-    if (clockedElem) clockedElem.textContent = '0'; // Will be updated after loading
-    if (pendingElem) pendingElem.textContent = total;
     if (ded2whElem) ded2whElem.textContent = ded2wh;
     if (ded4whElem) ded4whElem.textContent = ded4wh;
+    
+    // Update attendance data if provided
+    if (attendanceData && attendanceData.summary) {
+        if (clockedElem) clockedElem.textContent = attendanceData.summary.clocked_in || 0;
+        if (pendingElem) pendingElem.textContent = attendanceData.summary.not_clocked_in || 0;
+    } else {
+        // Default: assume no one has clocked in yet
+        if (clockedElem) clockedElem.textContent = '0';
+        if (pendingElem) pendingElem.textContent = total;
+    }
 }
 
-/**
- * Handle check attendance - show who hasn't clocked in yet
- */
-async function handleCheckAttendance() {
-    const date = rosterDateInput.value;
-    if (!date) {
-        showNotification('Pilih tanggal terlebih dahulu', 'error');
-        return;
-    }
-    
-    try {
-        showLoading('Mengecek kehadiran...');
-        const response = await checkRosterAttendance(date);
-        hideLoading();
-        
-        const summary = response.summary || {};
-        const notClockedIn = response.data?.not_clocked_in || [];
-        const clockedIn = response.data?.clocked_in || [];
-        const allRoster = response.data?.rostered || [];
-        
-        // Update summary
-        document.getElementById('att-total').textContent = summary.total_rostered || 0;
-        document.getElementById('att-clocked').textContent = summary.clocked_in || 0;
-        document.getElementById('att-pending').textContent = summary.not_clocked_in || 0;
-        
-        // Render list (show all roster with status)
-        const tbody = document.getElementById('attendance-list-body');
-        tbody.innerHTML = '';
-        
-        if (allRoster.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="4" class="px-4 py-8 text-center text-gray-500">
-                        Tidak ada roster untuk tanggal ini
-                    </td>
-                </tr>
-            `;
-        } else {
-            // Sort: belum absen di atas
-            const sortedRoster = [
-                ...notClockedIn.map(r => ({ ...r, status: 'not_clocked_in' })),
-                ...clockedIn.map(r => ({ ...r, status: 'clocked_in' }))
-            ];
-            
-            sortedRoster.forEach(item => {
-                const row = document.createElement('tr');
-                row.className = item.status === 'not_clocked_in' ? 'bg-red-50' : 'bg-white';
-                
-                const statusBadge = item.status === 'clocked_in'
-                    ? '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">✓ Sudah Absen</span>'
-                    : '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">✗ Belum Absen</span>';
-                
-                row.innerHTML = `
-                    <td class="px-4 py-3 text-sm text-gray-900">${escapeHtml(item.employee_id)}</td>
-                    <td class="px-4 py-3 text-sm font-medium text-gray-900">${escapeHtml(item.employee_name)}</td>
-                    <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(item.role || '-')}</td>
-                    <td class="px-4 py-3">${statusBadge}</td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-        
-        // Setup search
-        const searchInput = document.getElementById('attendance-search');
-        if (searchInput) {
-            searchInput.value = '';
-            searchInput.oninput = (e) => {
-                const query = e.target.value.toLowerCase();
-                const rows = tbody.querySelectorAll('tr');
-                rows.forEach(row => {
-                    const text = row.textContent.toLowerCase();
-                    row.style.display = text.includes(query) ? '' : 'none';
-                });
-            };
-        }
-        
-        // Show modal
-        const attendanceModal = document.getElementById('attendance-check-modal');
-        if (attendanceModal) attendanceModal.classList.remove('hidden');
-        
-    } catch (error) {
-        hideLoading();
-        errorLog('Failed to check attendance', error);
-        showNotification('Gagal mengecek kehadiran: ' + getErrorMessage(error), 'error');
-    }
-}
+
 
 /**
  * Handle export roster to image
@@ -2536,6 +2445,16 @@ async function handleSaveRoster() {
         // Store in localStorage with date as key
         localStorage.setItem(`roster_district_${date}`, JSON.stringify(districtMapping));
         
+        // Step 4: Fetch attendance data and update summary cards
+        try {
+            const response = await checkRosterAttendance(date);
+            updateSummary(response); // Update with real attendance data
+        } catch (attendanceError) {
+            // If attendance check fails, update summary without attendance data
+            debugLog('Failed to fetch attendance data:', attendanceError);
+            updateSummary();
+        }
+        
         hideLoading();
         showNotification(`Roster berhasil disimpan: ${allEmployeeIds.length} karyawan`, 'success');
     } catch (error) {
@@ -2609,7 +2528,7 @@ async function handleLoadRosterData() {
         });
         
         renderRosterColumns();
-        updateSummary();
+        updateSummary(response); // Pass attendance data to updateSummary
         
         showNotification(`Roster dimuat: ${roster.length} karyawan`, 'success');
     } catch (error) {
