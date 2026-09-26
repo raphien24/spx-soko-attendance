@@ -62,6 +62,7 @@ let hubLocationForm, hubNameInput, latitudeInput, longitudeInput, radiusInput, g
 let currentTab = 'dashboard';
 let todayAttendanceData = [];
 let allUsersData = [];
+let todayRosterData = null;
 let recordsData = [];
 let userToDelete = null;
 let autoRefreshInterval = null; // Auto-refresh timer
@@ -261,6 +262,22 @@ function setupEventListeners() {
     if (getCurrentGpsBtn) {
         getCurrentGpsBtn.addEventListener('click', handleGetCurrentGPS);
     }
+    
+    // Absent Card Click Listener
+    const absentCard = document.getElementById('absent-card');
+    if (absentCard) {
+        absentCard.addEventListener('click', showAbsentEmployeesModal);
+    }
+    
+    // Absent Modal Close Listeners
+    const closeAbsentModal = document.getElementById('close-absent-modal');
+    const closeAbsentModalBtn = document.getElementById('close-absent-modal-btn');
+    if (closeAbsentModal) {
+        closeAbsentModal.addEventListener('click', hideAbsentEmployeesModal);
+    }
+    if (closeAbsentModalBtn) {
+        closeAbsentModalBtn.addEventListener('click', hideAbsentEmployeesModal);
+    }
 }
 
 /**
@@ -355,12 +372,20 @@ function closeMobileSidebar() {
 async function loadDashboardData() {
     try {
         showLoading('Memuat data dashboard...');
-        const [attendance, users] = await Promise.all([
+        
+        // Get today's date in YYYY-MM-DD format
+        const today = new Date().toISOString().split('T')[0];
+        
+        const [attendance, users, rosterAttendance] = await Promise.all([
             getTodayAttendance(),
-            getAllUsers()
+            getAllUsers(),
+            checkRosterAttendance(today)
         ]);
+        
         todayAttendanceData = attendance;
         allUsersData = users;
+        todayRosterData = rosterAttendance; // Store roster data globally
+        
         updateStatsCards();
         renderTodayAttendancePreview();
         hideLoading();
@@ -470,11 +495,29 @@ async function loadRecordsData() {
  * Update stats cards
  */
 function updateStatsCards() {
+    // Total Employees
     totalEmployeesCard.textContent = allUsersData.length;
+    
+    // Today's Attendance
     const presentToday = new Set(todayAttendanceData.map(a => a.user_id)).size;
     presentTodayCard.textContent = presentToday;
-    absentTodayCard.textContent = allUsersData.length - presentToday;
+    
+    // Total Scans
     totalScansCard.textContent = todayAttendanceData.length;
+    
+    // Roster Today & Absent Today (from roster data)
+    const rosterTodayCard = document.getElementById('roster-today');
+    if (todayRosterData && todayRosterData.summary) {
+        const totalRoster = todayRosterData.summary.total_rostered || 0;
+        const notClockedIn = todayRosterData.summary.not_clocked_in || 0;
+        
+        if (rosterTodayCard) rosterTodayCard.textContent = totalRoster;
+        absentTodayCard.textContent = notClockedIn;
+    } else {
+        // Fallback to old calculation if no roster data
+        if (rosterTodayCard) rosterTodayCard.textContent = '-';
+        absentTodayCard.textContent = allUsersData.length - presentToday;
+    }
 }
 
 /**
@@ -941,6 +984,152 @@ function hideExportModal() {
 }
 
 /**
+ * Show absent employees modal
+ */
+function showAbsentEmployeesModal() {
+    if (!todayRosterData || !todayRosterData.data || !todayRosterData.data.not_clocked_in) {
+        showNotification('Data roster belum tersedia', 'error');
+        return;
+    }
+    
+    const absentModal = document.getElementById('absent-modal');
+    if (!absentModal) return;
+    
+    const absentEmployees = todayRosterData.data.not_clocked_in || [];
+    const absentCount = document.getElementById('absent-modal-count');
+    const absentList = document.getElementById('absent-employees-list');
+    
+    // Update count
+    if (absentCount) {
+        absentCount.textContent = absentEmployees.length;
+    }
+    
+    // Render table
+    if (absentList) {
+        absentList.innerHTML = '';
+        
+        if (absentEmployees.length === 0) {
+            absentList.innerHTML = `
+                <tr>
+                    <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                        <svg class="w-12 h-12 mx-auto mb-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Semua karyawan roster sudah absen! 🎉
+                    </td>
+                </tr>
+            `;
+        } else {
+            absentEmployees.forEach((emp, index) => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-4 py-3 text-sm text-gray-900 text-center">${index + 1}</td>
+                    <td class="px-4 py-3 text-sm font-medium text-gray-900">${escapeHtml(emp.employee_id)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900">${escapeHtml(emp.employee_name)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(emp.role || '-')}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                            ✗ Belum Absen
+                        </span>
+                    </td>
+                `;
+                absentList.appendChild(row);
+            });
+        }
+    }
+    
+    // Setup search functionality
+    setupAbsentSearch(absentEmployees);
+    
+    // Show modal
+    absentModal.classList.remove('hidden');
+}
+
+/**
+ * Hide absent employees modal
+ */
+function hideAbsentEmployeesModal() {
+    const absentModal = document.getElementById('absent-modal');
+    if (absentModal) {
+        absentModal.classList.add('hidden');
+    }
+}
+
+/**
+ * Setup search for absent employees modal
+ */
+function setupAbsentSearch(employees) {
+    const searchInput = document.getElementById('search-absent-employees');
+    const absentList = document.getElementById('absent-employees-list');
+    
+    if (!searchInput || !absentList) return;
+    
+    // Clear previous value
+    searchInput.value = '';
+    
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        
+        if (!query) {
+            // Re-render all employees
+            renderAbsentEmployeesList(employees);
+            return;
+        }
+        
+        // Filter employees
+        const filtered = employees.filter(emp => {
+            const name = (emp.employee_name || '').toLowerCase();
+            const id = (emp.employee_id || '').toLowerCase();
+            const role = (emp.role || '').toLowerCase();
+            
+            return name.includes(query) || id.includes(query) || role.includes(query);
+        });
+        
+        // Render filtered list
+        renderAbsentEmployeesList(filtered);
+    });
+}
+
+/**
+ * Render absent employees list
+ */
+function renderAbsentEmployeesList(employees) {
+    const absentList = document.getElementById('absent-employees-list');
+    if (!absentList) return;
+    
+    absentList.innerHTML = '';
+    
+    if (employees.length === 0) {
+        absentList.innerHTML = `
+            <tr>
+                <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                    Tidak ada hasil yang cocok dengan pencarian
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    employees.forEach((emp, index) => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        row.innerHTML = `
+            <td class="px-4 py-3 text-sm text-gray-900 text-center">${index + 1}</td>
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">${escapeHtml(emp.employee_id)}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${escapeHtml(emp.employee_name)}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(emp.role || '-')}</td>
+            <td class="px-4 py-3">
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                    ✗ Belum Absen
+                </span>
+            </td>
+        `;
+        absentList.appendChild(row);
+    });
+}
+
+/**
  * Handle confirm export (Pop-Up Modal Export)
  */
 async function handleConfirmExport(e) {
@@ -1188,6 +1377,16 @@ function formatTimestamp(isoTimestamp) {
         timeZone: 'Asia/Jakarta',
         hour12: false
     }) + ' WIB';
+}
+
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 /**
