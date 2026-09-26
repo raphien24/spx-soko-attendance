@@ -389,8 +389,8 @@ async function loadDashboardData() {
     try {
         showLoading('Memuat data dashboard...');
         
-        // Get today's date in YYYY-MM-DD format
-        const today = new Date().toISOString().split('T')[0];
+        // Get today's date in WIB timezone (YYYY-MM-DD format)
+        const today = getTodayWIB();
         
         const [attendance, users, rosterAttendance] = await Promise.all([
             getTodayAttendance(),
@@ -1369,6 +1369,21 @@ function getExactWIBDateString(isoTimestamp) {
     const date = new Date(isoTimestamp);
     
     const wibTime = date.getTime() + (7 * 60 * 60 * 1000);
+    const wibDate = new Date(wibTime);
+    
+    const year = wibDate.getUTCFullYear();
+    const month = String(wibDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(wibDate.getUTCDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}
+
+/**
+ * Get today's date in WIB timezone (YYYY-MM-DD format)
+ */
+function getTodayWIB() {
+    const now = new Date();
+    const wibTime = now.getTime() + (7 * 60 * 60 * 1000); // Add 7 hours for WIB
     const wibDate = new Date(wibTime);
     
     const year = wibDate.getUTCFullYear();
