@@ -304,7 +304,7 @@ function switchTab(tabName) {
             break;
         case 'roster':
             if (rosterTab) rosterTab.classList.remove('hidden');
-            loadEmployeesForRoster();
+            // Employees already loaded in initRosterTab via loadAllEmployeesForRoster
             break;
         case 'records':
             if (recordsTab) recordsTab.classList.remove('hidden');
@@ -2266,36 +2266,12 @@ async function handleLoadRosterData() {
     }
 }
 
-/**
- * Load employees for roster selection (Legacy - kept for compatibility)
+/*
+ * LEGACY FUNCTIONS - NOT USED ANYMORE (Replaced by district-based modal system)
+ * Kept here for reference only
  */
-async function loadEmployeesForRoster() {
-    try {
-        const employees = await getAllEmployeesData();
-        
-        if (rosterEmployeeSelect) {
-            rosterEmployeeSelect.innerHTML = '';
-            
-            if (employees.length === 0) {
-                rosterEmployeeSelect.innerHTML = '<option disabled>Belum ada karyawan</option>';
-                return;
-            }
-            
-            employees.forEach(emp => {
-                const option = document.createElement('option');
-                option.value = emp.employee_id;
-                option.textContent = `${emp.name} (${emp.employee_id}) - ${emp.role}`;
-                rosterEmployeeSelect.appendChild(option);
-            });
-        }
-    } catch (error) {
-        errorLog('Failed to load employees for roster', error);
-    }
-}
 
-/**
- * Handle create roster submission
- */
+/*
 async function handleCreateRoster(e) {
     e.preventDefault();
     
@@ -2342,9 +2318,11 @@ async function handleCreateRoster(e) {
         showNotification('Gagal membuat roster: ' + getErrorMessage(error), 'error');
     }
 }
+*/
 
 /**
- * Handle load roster
+ * Handle load roster (Legacy table view)
+ */
  */
 async function handleLoadRoster() {
     const date = viewRosterDateInput.value;
