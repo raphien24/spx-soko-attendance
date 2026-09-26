@@ -613,6 +613,10 @@
                                         class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
                                     📊 Load Data
                                 </button>
+                                <button id="check-attendance-btn" 
+                                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition">
+                                    ⚠️ Cek Belum Absen
+                                </button>
                                 <button id="copy-yesterday-btn" 
                                         class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition">
                                     📋 Copy Roster Kemarin
@@ -873,6 +877,57 @@
                             
                             <div id="modal-employee-list" class="space-y-2">
                                 <!-- Employee checkboxes will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Attendance Check Modal (Hidden by default) -->
+                    <div id="attendance-check-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div class="bg-white rounded-lg shadow-xl p-6 max-w-3xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold text-red-600">⚠️ Karyawan Belum Absen</h3>
+                                <button id="close-attendance-modal-btn" class="text-gray-500 hover:text-gray-700">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <div id="attendance-summary" class="grid grid-cols-3 gap-4 mb-4">
+                                <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                    <p class="text-xs text-gray-600">Total Roster</p>
+                                    <p id="att-total" class="text-2xl font-bold text-gray-800">0</p>
+                                </div>
+                                <div class="bg-green-50 p-3 rounded-lg border border-green-200">
+                                    <p class="text-xs text-gray-600">Sudah Absen</p>
+                                    <p id="att-clocked" class="text-2xl font-bold text-green-600">0</p>
+                                </div>
+                                <div class="bg-red-50 p-3 rounded-lg border border-red-200">
+                                    <p class="text-xs text-gray-600">Belum Absen</p>
+                                    <p id="att-pending" class="text-2xl font-bold text-red-600">0</p>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <input type="text" id="attendance-search" 
+                                       placeholder="🔍 Cari nama..." 
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee ID</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="attendance-list-body" class="bg-white divide-y divide-gray-200">
+                                        <!-- Attendance list will be populated here -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
