@@ -1769,6 +1769,7 @@ function initRosterTab() {
     rosterDateInput = document.getElementById('roster-date');
     
     const loadDataBtn = document.getElementById('load-roster-data-btn');
+    const copyYesterdayBtn = document.getElementById('copy-yesterday-btn');
     const saveRosterBtn = document.getElementById('save-roster-btn');
     const addEmployeeBtns = document.querySelectorAll('.add-employee-btn');
     const closeModalBtn = document.getElementById('close-modal-btn');
@@ -1792,6 +1793,11 @@ function initRosterTab() {
     // Load data button (keep for manual refresh)
     if (loadDataBtn) {
         loadDataBtn.addEventListener('click', handleLoadRosterData);
+    }
+    
+    // Copy yesterday button
+    if (copyYesterdayBtn) {
+        copyYesterdayBtn.addEventListener('click', handleCopyYesterday);
     }
     
     // Save roster button
@@ -2155,6 +2161,96 @@ function updateSummary() {
     if (pendingElem) pendingElem.textContent = total;
     if (ded2whElem) ded2whElem.textContent = ded2wh;
     if (ded4whElem) ded4whElem.textContent = ded4wh;
+}
+
+/**
+ * Handle copy roster from yesterday
+ */
+async function handleCopyYesterday() {
+    const currentDate = rosterDateInput.value;
+    if (!currentDate) {
+        showNotification('Pilih tanggal terlebih dahulu', 'error');
+        return;
+    }
+    
+    // Calculate yesterday's date
+    const selectedDate = new Date(currentDate);
+    selectedDate.setDate(selectedDate.getDate() - 1);
+    const yesterdayDate = selectedDate.toISOString().split('T')[0];
+    
+    // Confirm action
+    const confirmed = confirm(
+        `Copy roster dari ${yesterdayDate} ke ${currentDate}?\n\n` +
+        `Roster yang ada di ${currentDate} akan ditimpa (replaced).`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+        showLoading(`Memuat roster ${yesterdayDate}...`);
+        const response = await checkRosterAttendance(yesterdayDate);
+        
+        // Extract roster data from response
+        const roster = response.data?.rostered || [];
+        
+        if (roster.length === 0) {
+            hideLoading();
+            showNotification(`Tidak ada roster di tanggal ${yesterdayDate}`, 'info');
+            return;
+        }
+        
+        // Load district mapping from localStorage for yesterday
+        const districtMappingStr = localStorage.getItem(`roster_district_${yesterdayDate}`);
+        const districtMapping = districtMappingStr ? JSON.parse(districtMappingStr) : {};
+        
+        // Clear current selection
+        const districts = ['SOKO', 'RENGEL', 'GRABAGAN'];
+        selectedEmployees = {
+            'Rider Dedicated': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+            'Driver Dedicated': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+            'Driver Mitra': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+            'Rider Plus': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] },
+            'Rider Mitra': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] }
+        };
+        
+        // Populate from yesterday's roster
+        roster.forEach(item => {
+            const role = item.role;
+            // Get district from localStorage mapping, fallback to SOKO
+            const savedInfo = districtMapping[item.employee_id];
+            const district = savedInfo?.district || 'SOKO';
+            
+            if (!selectedEmployees[role]) {
+                selectedEmployees[role] = { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] };
+            }
+            
+            if (!selectedEmployees[role][district]) {
+                selectedEmployees[role][district] = [];
+            }
+            
+            selectedEmployees[role][district].push({
+                employee_id: item.employee_id,
+                name: item.employee_name,
+                role: role,
+                district: district
+            });
+        });
+        
+        hideLoading();
+        renderRosterColumns();
+        updateSummary();
+        
+        showNotification(
+            `✅ Roster kemarin berhasil di-copy: ${roster.length} karyawan\n\n` +
+            `Jangan lupa klik "💾 Simpan Roster" untuk menyimpan!`,
+            'success'
+        );
+        
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to copy yesterday roster', error);
+        showNotification('Gagal copy roster kemarin: ' + getErrorMessage(error), 'error');
+    }
 }
 
 /**
