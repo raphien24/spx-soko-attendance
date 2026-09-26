@@ -49,6 +49,7 @@ import {
     getRoster,
     removeRoster,
     removeRosterByDateEmployee,
+    removeRosterByDate,
     checkAttendance
 } from './handlers/roster.js';
 
@@ -217,13 +218,16 @@ async function handleRequest(request, env, ctx) {
         else if (pathname === '/api/roster/by-date-employee' && method === 'DELETE') {
             response = await removeRosterByDateEmployee(request, env);
         }
+        else if (pathname === '/api/roster/by-date' && method === 'DELETE') {
+            response = await removeRosterByDate(request, env);
+        }
         else if (pathname === '/api/roster/check-attendance' && method === 'GET') {
             response = await checkAttendance(request, env);
         }
         else if (pathname.startsWith('/api/roster/') && method === 'DELETE') {
             // DELETE /api/roster/:roster_id
             const rosterId = pathname.split('/')[3];
-            if (rosterId && rosterId !== 'by-date-employee' && rosterId !== 'check-attendance') {
+            if (rosterId && rosterId !== 'by-date-employee' && rosterId !== 'by-date' && rosterId !== 'check-attendance') {
                 response = await removeRoster(request, env, rosterId);
             } else {
                 response = corsErrorResponse(request, 'Roster ID is required', 400);

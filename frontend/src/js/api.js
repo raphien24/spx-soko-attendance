@@ -372,6 +372,17 @@ async function retryApiCall(apiFunction, maxRetries = 3, delayMs = 1000) {
 // SINGLE EXPORT BLOCK (NO DUPLICATES)
 // ============================================
 
+async function deleteRosterByDate(date) {
+    try {
+        const response = await apiDelete(`/api/roster/by-date?date=${date}`);
+        debugLog('Roster deleted for date:', date);
+        return response;
+    } catch (error) {
+        errorLog('Failed to delete roster by date', error);
+        throw error;
+    }
+}
+
 export {
     // User management
     registerUser,
@@ -409,6 +420,7 @@ export {
     getRosterByDateRange,
     deleteRosterEntry,
     deleteRosterByDateEmployee,
+    deleteRosterByDate,
     checkRosterAttendance,
     
     // Utilities

@@ -26,6 +26,7 @@ import {
     getRosterByDateRange,
     deleteRosterEntry,
     deleteRosterByDateEmployee,
+    deleteRosterByDate,
     checkRosterAttendance
 } from './api.js';
 
@@ -1778,9 +1779,17 @@ function initRosterTab() {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         rosterDateInput.value = tomorrow.toISOString().split('T')[0];
+        
+        // Auto-load roster when date changes
+        rosterDateInput.addEventListener('change', async () => {
+            await handleLoadRosterData();
+        });
+        
+        // Load initial roster for default date
+        setTimeout(() => handleLoadRosterData(), 500);
     }
     
-    // Load data button
+    // Load data button (keep for manual refresh)
     if (loadDataBtn) {
         loadDataBtn.addEventListener('click', handleLoadRosterData);
     }
@@ -2193,9 +2202,20 @@ async function handleSaveRoster() {
     
     try {
         showLoading('Menyimpan roster...');
+        
+        // Step 1: Delete existing roster for this date (REPLACE mode)
+        try {
+            await deleteRosterByDate(date);
+            debugLog(`Deleted existing roster for ${date}`);
+        } catch (deleteError) {
+            // Continue even if delete fails (might be no existing roster)
+            debugLog('No existing roster to delete or delete failed:', deleteError);
+        }
+        
+        // Step 2: Save new roster
         await createRosterSchedule(date, allEmployeeIds);
         
-        // Save district mapping to localStorage
+        // Step 3: Save district mapping to localStorage
         const districtMapping = {};
         for (const role in selectedEmployees) {
             if (typeof selectedEmployees[role] === 'object' && !Array.isArray(selectedEmployees[role])) {

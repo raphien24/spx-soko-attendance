@@ -433,6 +433,7 @@ export {
     getRosterByDateRange,
     deleteRoster,
     deleteRosterByDateAndEmployee,
+    deleteRosterByDate,
     getRosterWithAttendance,
     isEmployeeRostered
 };
@@ -779,6 +780,19 @@ async function deleteRosterByDateAndEmployee(db, date, employeeId) {
         `DELETE FROM roster_schedule WHERE date = ? AND employee_id = ?`
     );
     return await stmt.bind(date, employeeId).run();
+}
+
+/**
+ * Delete all roster entries for a specific date
+ * @param {D1Database} db 
+ * @param {string} date - YYYY-MM-DD
+ * @returns {Promise<Object>} Result object with changes count
+ */
+async function deleteRosterByDate(db, date) {
+    const stmt = db.prepare(
+        `DELETE FROM roster_schedule WHERE date = ?`
+    );
+    return await stmt.bind(date).run();
 }
 
 /**

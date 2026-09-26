@@ -9,6 +9,7 @@ import {
     getRosterByDateRange,
     deleteRoster,
     deleteRosterByDateAndEmployee,
+    deleteRosterByDate,
     getRosterWithAttendance,
     isEmployeeRostered,
     getEmployeeByEmployeeId
@@ -328,10 +329,56 @@ async function checkAttendance(request, env) {
     }
 }
 
+/**
+ * DELETE /api/roster/by-date?date=YYYY-MM-DD
+ * Delete all roster entries for a specific date
+ * 
+ * @param {Request} request 
+ * @param {Object} env 
+ * @returns {Response}
+ */
+async function removeRosterByDate(request, env) {
+    try {
+        const url = new URL(request.url);
+        const date = url.searchParams.get('date');
+        
+        if (!date) {
+            return corsErrorResponse(request, 'Missing required parameter: date', 400);
+        }
+        
+        // Validate date format
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            return corsErrorResponse(request, 'Invalid date format. Use YYYY-MM-DD', 400);
+        }
+        
+        const result = await deleteRosterByDate(env.DB, date);
+        
+        console.log(`[Roster] Deleted all roster entries for ${date}: ${result.meta.changes} entries`);
+        
+        return corsResponse(request, {
+            success: true,
+            message: `Deleted ${result.meta.changes} roster entries for ${date}`,
+            data: {
+                date,
+                deleted_count: result.meta.changes
+            }
+        });
+        
+    } catch (error) {
+        console.error('[Roster] Delete roster by date failed:', error);
+        return corsErrorResponse(
+            request,
+            error.message || 'Failed to delete roster by date',
+            500
+        );
+    }
+}
+
 export {
     createRoster,
     getRoster,
     removeRoster,
     removeRosterByDateEmployee,
+    removeRosterByDate,
     checkAttendance
 };
