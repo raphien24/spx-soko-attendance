@@ -1,6 +1,7 @@
 /**
  * SPX Soko Attendance System - Main Worker Entry Point
  * Cloudflare Workers API
+ * Auto-deploy enabled via GitHub Actions
  */
 
 // Import handlers
