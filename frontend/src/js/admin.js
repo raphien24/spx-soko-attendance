@@ -1218,6 +1218,9 @@ window.adminApp = {
     handleCancelDelete
 };
 
+// Export roster function to global scope
+window.removeFromRoster = removeFromRoster;
+
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', init);
 window.addEventListener('DOMContentLoaded', init);
@@ -1752,50 +1755,386 @@ async function handleSyncEmployees() {
 // ROSTER SCHEDULE MANAGEMENT
 // ============================================
 
-let rosterTab, createRosterForm, rosterEmployeeSelect, rosterTableBody;
-let rosterDateInput, viewRosterDateInput, loadRosterBtn;
-let rosterSummary, rosterTotal, rosterClockedIn, rosterNotClocked;
+let rosterTab, rosterDateInput;
+let selectedEmployees = {}; // Track selected employees by role
+let allEmployeesCache = []; // Cache all employees
 
 /**
  * Initialize roster tab elements
  */
 function initRosterTab() {
     rosterTab = document.getElementById('roster-tab');
-    createRosterForm = document.getElementById('create-roster-form');
-    rosterEmployeeSelect = document.getElementById('roster-employee-select');
-    rosterTableBody = document.getElementById('roster-table-body');
     rosterDateInput = document.getElementById('roster-date');
-    viewRosterDateInput = document.getElementById('view-roster-date');
-    loadRosterBtn = document.getElementById('load-roster-btn');
     
-    rosterSummary = document.getElementById('roster-summary');
-    rosterTotal = document.getElementById('roster-total');
-    rosterClockedIn = document.getElementById('roster-clocked-in');
-    rosterNotClocked = document.getElementById('roster-not-clocked');
+    const loadDataBtn = document.getElementById('load-roster-data-btn');
+    const saveRosterBtn = document.getElementById('save-roster-btn');
+    const addEmployeeBtns = document.querySelectorAll('.add-employee-btn');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const modal = document.getElementById('employee-select-modal');
     
-    // Set default dates (tomorrow for roster, today for view)
+    // Set default date (tomorrow)
     if (rosterDateInput) {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         rosterDateInput.value = tomorrow.toISOString().split('T')[0];
     }
     
-    if (viewRosterDateInput) {
-        const today = new Date();
-        viewRosterDateInput.value = today.toISOString().split('T')[0];
+    // Load data button
+    if (loadDataBtn) {
+        loadDataBtn.addEventListener('click', handleLoadRosterData);
     }
     
-    if (createRosterForm) {
-        createRosterForm.addEventListener('submit', handleCreateRoster);
+    // Save roster button
+    if (saveRosterBtn) {
+        saveRosterBtn.addEventListener('click', handleSaveRoster);
     }
     
-    if (loadRosterBtn) {
-        loadRosterBtn.addEventListener('click', handleLoadRoster);
+    // Add employee buttons
+    addEmployeeBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const role = e.target.getAttribute('data-role');
+            openEmployeeModal(role);
+        });
+    });
+    
+    // Close modal
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+    }
+    
+    // Close modal on outside click
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+            }
+        });
+    }
+    
+    // Load all employees
+    loadAllEmployeesForRoster();
+    
+    // Initialize empty roster
+    selectedEmployees = {
+        'Rider Dedicated': [],
+        'Driver Dedicated': [],
+        'Driver Mitra': [],
+        'Rider Plus': [],
+        'Rider Mitra': []
+    };
+}
+
+/**
+ * Load all employees for roster
+ */
+async function loadAllEmployeesForRoster() {
+    try {
+        allEmployeesCache = await getAllEmployeesData();
+        debugLog(`Loaded ${allEmployeesCache.length} employees for roster`);
+    } catch (error) {
+        errorLog('Failed to load employees for roster', error);
+        showNotification('Gagal memuat data karyawan', 'error');
     }
 }
 
 /**
- * Load employees for roster selection
+ * Open employee selection modal
+ */
+function openEmployeeModal(role) {
+    const modal = document.getElementById('employee-select-modal');
+    const modalList = document.getElementById('modal-employee-list');
+    const searchInput = document.getElementById('modal-search-employee');
+    
+    if (!modal || !modalList) return;
+    
+    // Filter employees by role
+    let filteredEmployees = allEmployeesCache;
+    if (role === 'Driver') {
+        // Driver column includes both Driver Dedicated and Driver Mitra
+        filteredEmployees = allEmployeesCache.filter(emp => 
+            emp.role === 'Driver Dedicated' || emp.role === 'Driver Mitra'
+        );
+    } else {
+        filteredEmployees = allEmployeesCache.filter(emp => emp.role === role);
+    }
+    
+    // Render employee checkboxes
+    modalList.innerHTML = '';
+    if (filteredEmployees.length === 0) {
+        modalList.innerHTML = '<p class="text-gray-500 text-center py-4">Tidak ada karyawan dengan role ini</p>';
+    } else {
+        filteredEmployees.forEach(emp => {
+            const isSelected = isEmployeeInRoster(emp.employee_id);
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-3 p-2 hover:bg-gray-50 rounded';
+            div.innerHTML = `
+                <input type="checkbox" 
+                       id="emp-${emp.employee_id}" 
+                       value="${emp.employee_id}"
+                       data-name="${escapeHtml(emp.name)}"
+                       data-role="${escapeHtml(emp.role)}"
+                       ${isSelected ? 'checked disabled' : ''}
+                       class="w-4 h-4">
+                <label for="emp-${emp.employee_id}" class="flex-1 cursor-pointer">
+                    <span class="font-medium">${escapeHtml(emp.name)}</span>
+                    <span class="text-sm text-gray-500">(${escapeHtml(emp.employee_id)})</span>
+                </label>
+            `;
+            modalList.appendChild(div);
+        });
+    }
+    
+    // Add button
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'w-full mt-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg';
+    addBtn.textContent = '✅ Tambahkan yang Dipilih';
+    addBtn.onclick = () => addSelectedEmployees(role);
+    modalList.appendChild(addBtn);
+    
+    // Search functionality
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.oninput = (e) => {
+            const query = e.target.value.toLowerCase();
+            modalList.querySelectorAll('div').forEach(div => {
+                const text = div.textContent.toLowerCase();
+                div.style.display = text.includes(query) ? 'flex' : 'none';
+            });
+        };
+    }
+    
+    // Show modal
+    modal.classList.remove('hidden');
+}
+
+/**
+ * Check if employee already in roster
+ */
+function isEmployeeInRoster(employeeId) {
+    for (const role in selectedEmployees) {
+        if (selectedEmployees[role].some(emp => emp.employee_id === employeeId)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Add selected employees to roster
+ */
+function addSelectedEmployees(targetRole) {
+    const modal = document.getElementById('employee-select-modal');
+    const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
+    
+    checkboxes.forEach(cb => {
+        const employeeId = cb.value;
+        const name = cb.getAttribute('data-name');
+        const role = cb.getAttribute('data-role');
+        
+        if (!selectedEmployees[role]) {
+            selectedEmployees[role] = [];
+        }
+        
+        selectedEmployees[role].push({
+            employee_id: employeeId,
+            name: name,
+            role: role
+        });
+    });
+    
+    // Update UI
+    renderRosterColumns();
+    updateSummary();
+    
+    // Close modal
+    modal.classList.add('hidden');
+    
+    showNotification(`${checkboxes.length} karyawan ditambahkan`, 'success');
+}
+
+/**
+ * Render roster columns with names
+ */
+function renderRosterColumns() {
+    // Rider Dedicated
+    const dedicatedList = document.getElementById('dedicated-list');
+    const dedicatedCount = document.getElementById('dedicated-count');
+    if (dedicatedList) {
+        dedicatedList.innerHTML = renderEmployeeNames(selectedEmployees['Rider Dedicated'] || []);
+        if (dedicatedCount) dedicatedCount.textContent = (selectedEmployees['Rider Dedicated'] || []).length;
+    }
+    
+    // Driver (Dedicated + Mitra)
+    const driverList = document.getElementById('driver-list');
+    const driverCount = document.getElementById('driver-count');
+    const driverEmployees = [
+        ...(selectedEmployees['Driver Dedicated'] || []),
+        ...(selectedEmployees['Driver Mitra'] || [])
+    ];
+    if (driverList) {
+        driverList.innerHTML = renderEmployeeNames(driverEmployees);
+        if (driverCount) driverCount.textContent = driverEmployees.length;
+    }
+    
+    // Rider Plus
+    const plusList = document.getElementById('plus-list');
+    const plusCount = document.getElementById('plus-count');
+    if (plusList) {
+        plusList.innerHTML = renderEmployeeNames(selectedEmployees['Rider Plus'] || []);
+        if (plusCount) plusCount.textContent = (selectedEmployees['Rider Plus'] || []).length;
+    }
+    
+    // Rider Mitra
+    const mitraList = document.getElementById('mitra-list');
+    const mitraCount = document.getElementById('mitra-count');
+    if (mitraList) {
+        mitraList.innerHTML = renderEmployeeNames(selectedEmployees['Rider Mitra'] || []);
+        if (mitraCount) mitraCount.textContent = (selectedEmployees['Rider Mitra'] || []).length;
+    }
+}
+
+/**
+ * Render employee names as HTML
+ */
+function renderEmployeeNames(employees) {
+    if (employees.length === 0) {
+        return '<p class="text-sm text-gray-400 text-center py-4">Belum ada karyawan</p>';
+    }
+    
+    return employees.map(emp => `
+        <div class="flex items-center justify-between py-1 px-2 hover:bg-white hover:bg-opacity-50 rounded text-sm">
+            <span class="font-medium">${escapeHtml(emp.name)}</span>
+            <button class="text-red-500 hover:text-red-700 text-xs" onclick="removeFromRoster('${emp.employee_id}')">
+                ✕
+            </button>
+        </div>
+    `).join('');
+}
+
+/**
+ * Remove employee from roster
+ */
+function removeFromRoster(employeeId) {
+    for (const role in selectedEmployees) {
+        selectedEmployees[role] = selectedEmployees[role].filter(emp => emp.employee_id !== employeeId);
+    }
+    renderRosterColumns();
+    updateSummary();
+}
+
+/**
+ * Update summary cards
+ */
+function updateSummary() {
+    const totalElem = document.getElementById('summary-total');
+    const clockedElem = document.getElementById('summary-clocked');
+    const pendingElem = document.getElementById('summary-pending');
+    const ded2whElem = document.getElementById('summary-ded2wh');
+    const ded4whElem = document.getElementById('summary-ded4wh');
+    
+    const total = Object.values(selectedEmployees).reduce((sum, arr) => sum + arr.length, 0);
+    const ded2wh = (selectedEmployees['Rider Dedicated'] || []).length;
+    const ded4wh = (selectedEmployees['Driver Dedicated'] || []).length + (selectedEmployees['Driver Mitra'] || []).length;
+    
+    if (totalElem) totalElem.textContent = total;
+    if (clockedElem) clockedElem.textContent = '0'; // Will be updated after loading
+    if (pendingElem) pendingElem.textContent = total;
+    if (ded2whElem) ded2whElem.textContent = ded2wh;
+    if (ded4whElem) ded4whElem.textContent = ded4wh;
+}
+
+/**
+ * Handle save roster
+ */
+async function handleSaveRoster() {
+    const date = rosterDateInput.value;
+    if (!date) {
+        showNotification('Pilih tanggal terlebih dahulu', 'error');
+        return;
+    }
+    
+    // Collect all selected employee IDs
+    const allEmployeeIds = [];
+    for (const role in selectedEmployees) {
+        selectedEmployees[role].forEach(emp => {
+            allEmployeeIds.push(emp.employee_id);
+        });
+    }
+    
+    if (allEmployeeIds.length === 0) {
+        showNotification('Belum ada karyawan yang dipilih', 'error');
+        return;
+    }
+    
+    try {
+        showLoading('Menyimpan roster...');
+        await createRosterSchedule(date, allEmployeeIds);
+        hideLoading();
+        showNotification(`Roster berhasil disimpan: ${allEmployeeIds.length} karyawan`, 'success');
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to save roster', error);
+        showNotification('Gagal menyimpan roster: ' + getErrorMessage(error), 'error');
+    }
+}
+
+/**
+ * Handle load roster data
+ */
+async function handleLoadRosterData() {
+    const date = rosterDateInput.value;
+    if (!date) {
+        showNotification('Pilih tanggal terlebih dahulu', 'error');
+        return;
+    }
+    
+    try {
+        showLoading('Memuat roster...');
+        const roster = await checkRosterAttendance(date);
+        hideLoading();
+        
+        if (!roster || roster.length === 0) {
+            showNotification('Tidak ada roster untuk tanggal ini', 'info');
+            return;
+        }
+        
+        // Clear current selection
+        selectedEmployees = {
+            'Rider Dedicated': [],
+            'Driver Dedicated': [],
+            'Driver Mitra': [],
+            'Rider Plus': [],
+            'Rider Mitra': []
+        };
+        
+        // Populate from loaded data
+        roster.forEach(item => {
+            if (!selectedEmployees[item.role]) {
+                selectedEmployees[item.role] = [];
+            }
+            selectedEmployees[item.role].push({
+                employee_id: item.employee_id,
+                name: item.employee_name,
+                role: item.role
+            });
+        });
+        
+        renderRosterColumns();
+        updateSummary();
+        
+        showNotification(`Roster dimuat: ${roster.length} karyawan`, 'success');
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to load roster', error);
+        showNotification('Gagal memuat roster: ' + getErrorMessage(error), 'error');
+    }
+}
+
+/**
+ * Load employees for roster selection (Legacy - kept for compatibility)
  */
 async function loadEmployeesForRoster() {
     try {
