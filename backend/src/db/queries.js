@@ -796,7 +796,6 @@ async function getRosterWithAttendance(db, date) {
             r.employee_id,
             r.employee_name,
             e.role,
-            e.phone,
             e.enrolled_status,
             CASE 
                 WHEN a.id IS NOT NULL THEN 'clocked_in'
