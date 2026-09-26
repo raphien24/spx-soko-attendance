@@ -401,6 +401,7 @@ export {
     updateEmployeeInfo,
     deleteEmployeeData,
     bulkAddEmployees,
+    syncEmployeesWithUsers,
     
     // Roster schedule
     createRosterSchedule,
@@ -473,6 +474,17 @@ async function bulkAddEmployees(employeesArray) {
         return response.data;
     } catch (error) {
         errorLog('Failed to bulk upload employees', error);
+        throw error;
+    }
+}
+
+async function syncEmployeesWithUsers() {
+    try {
+        const response = await apiPost('/api/employees/sync', {});
+        debugLog(`Sync result: ${response.data.matched} matched, ${response.data.nameUpdated} names updated`);
+        return response.data;
+    } catch (error) {
+        errorLog('Failed to sync employees with users', error);
         throw error;
     }
 }

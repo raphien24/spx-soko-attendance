@@ -425,6 +425,7 @@ export {
     updateEmployee,
     deleteEmployee,
     bulkInsertEmployees,
+    syncEmployeesWithUsers,
     
     // Roster schedule queries
     insertRoster,
@@ -609,6 +610,85 @@ async function bulkInsertEmployees(db, employeesData) {
     }
     
     return results;
+}
+
+/**
+ * Sync employees with users (enrolled face data)
+ * Match by employee_id, update names and link tables
+ * @param {D1Database} db 
+ * @returns {Promise<Object>} Result with sync statistics
+ */
+async function syncEmployeesWithUsers(db) {
+    const results = {
+        matched: 0,
+        nameUpdated: 0,
+        linkedEmployees: 0,
+        errors: []
+    };
+    
+    try {
+        // Get all users (enrolled face data)
+        const usersStmt = db.prepare(`SELECT id, employee_id, name FROM users`);
+        const usersResult = await usersStmt.all();
+        const users = usersResult.results || [];
+        
+        // Get all employees
+        const employeesStmt = db.prepare(`SELECT id, employee_id, name, user_id FROM employees`);
+        const employeesResult = await employeesStmt.all();
+        const employees = employeesResult.results || [];
+        
+        // Create lookup map for employees by employee_id
+        const employeeMap = {};
+        employees.forEach(emp => {
+            employeeMap[emp.employee_id] = emp;
+        });
+        
+        // Sync each user
+        for (const user of users) {
+            const employee = employeeMap[user.employee_id];
+            
+            if (employee) {
+                results.matched++;
+                
+                // Check if name needs update in users table
+                if (user.name !== employee.name) {
+                    try {
+                        const updateUserStmt = db.prepare(
+                            `UPDATE users SET name = ? WHERE id = ?`
+                        );
+                        await updateUserStmt.bind(employee.name, user.id).run();
+                        results.nameUpdated++;
+                    } catch (error) {
+                        results.errors.push({
+                            employee_id: user.employee_id,
+                            error: `Failed to update user name: ${error.message}`
+                        });
+                    }
+                }
+                
+                // Link employee to user if not already linked
+                if (!employee.user_id || employee.user_id !== user.id) {
+                    try {
+                        const linkStmt = db.prepare(
+                            `UPDATE employees SET user_id = ?, enrolled_status = 'enrolled' WHERE id = ?`
+                        );
+                        await linkStmt.bind(user.id, employee.id).run();
+                        results.linkedEmployees++;
+                    } catch (error) {
+                        results.errors.push({
+                            employee_id: user.employee_id,
+                            error: `Failed to link employee: ${error.message}`
+                        });
+                    }
+                }
+            }
+        }
+        
+        return results;
+        
+    } catch (error) {
+        throw new Error(`Sync failed: ${error.message}`);
+    }
 }
 
 // ============================================

@@ -19,6 +19,7 @@ import {
     updateEmployeeInfo,
     deleteEmployeeData,
     bulkAddEmployees,
+    syncEmployeesWithUsers,
     // Roster schedule
     createRosterSchedule,
     getRosterSchedule,
@@ -1366,6 +1367,7 @@ function initEmployeeDataTab() {
     // CSV upload elements
     const csvUploadInput = document.getElementById('csv-upload-input');
     const downloadTemplateBtn = document.getElementById('download-template-btn');
+    const syncEmployeesBtn = document.getElementById('sync-employees-btn');
     
     if (addEmployeeForm) {
         addEmployeeForm.addEventListener('submit', handleAddEmployee);
@@ -1381,6 +1383,10 @@ function initEmployeeDataTab() {
     
     if (downloadTemplateBtn) {
         downloadTemplateBtn.addEventListener('click', downloadCSVTemplate);
+    }
+    
+    if (syncEmployeesBtn) {
+        syncEmployeesBtn.addEventListener('click', handleSyncEmployees);
     }
 }
 
@@ -1692,6 +1698,54 @@ function parseCSV(text) {
     }
     
     return employees;
+}
+
+/**
+ * Handle sync employees button click
+ */
+async function handleSyncEmployees() {
+    try {
+        const confirmed = confirm(
+            'Sinkronkan Data Karyawan dengan Karyawan Terdaftar?\n\n' +
+            'Proses ini akan:\n' +
+            '- Match berdasarkan Employee ID\n' +
+            '- Update nama di "Karyawan Terdaftar" sesuai "Data Karyawan"\n' +
+            '- Update status enrolled di "Data Karyawan"\n' +
+            '- Link kedua tabel\n\n' +
+            'Lanjutkan?'
+        );
+        
+        if (!confirmed) return;
+        
+        showLoading('Sinkronisasi data...');
+        
+        const result = await syncEmployeesWithUsers();
+        
+        hideLoading();
+        
+        let message = `Sinkronisasi selesai!\n\n`;
+        message += `✅ Matched: ${result.matched} karyawan\n`;
+        message += `📝 Nama diupdate: ${result.nameUpdated}\n`;
+        message += `🔗 Linked: ${result.linkedEmployees}\n`;
+        
+        if (result.errors && result.errors.length > 0) {
+            message += `\n⚠️ Errors: ${result.errors.length}\n`;
+            result.errors.forEach(err => {
+                message += `- ${err.employee_id}: ${err.error}\n`;
+            });
+        }
+        
+        alert(message);
+        showNotification(`Sinkronisasi berhasil: ${result.matched} matched, ${result.nameUpdated} names updated`, 'success');
+        
+        // Reload employee data
+        await loadAllEmployeesData();
+        
+    } catch (error) {
+        hideLoading();
+        errorLog('Sync failed', error);
+        showNotification('Gagal sinkronisasi: ' + getErrorMessage(error), 'error');
+    }
 }
 
 // ============================================

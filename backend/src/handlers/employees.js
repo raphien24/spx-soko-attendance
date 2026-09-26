@@ -9,7 +9,8 @@ import {
     getEmployeeByEmployeeId,
     updateEmployee,
     deleteEmployee,
-    bulkInsertEmployees
+    bulkInsertEmployees,
+    syncEmployeesWithUsers
 } from '../db/queries.js';
 
 import {
@@ -285,10 +286,43 @@ async function bulkUploadEmployees(request, env) {
     }
 }
 
+/**
+ * POST /api/employees/sync
+ * Sync employees with enrolled users
+ * 
+ * @param {Request} request 
+ * @param {Object} env 
+ * @returns {Response}
+ */
+async function syncEmployees(request, env) {
+    try {
+        console.log('[Employee] Starting sync between employees and users');
+        
+        const results = await syncEmployeesWithUsers(env.DB);
+        
+        console.log(`[Employee] Sync completed: ${results.matched} matched, ${results.nameUpdated} names updated, ${results.linkedEmployees} linked`);
+        
+        return corsResponse(request, {
+            success: true,
+            message: `Sync completed: ${results.matched} matched, ${results.nameUpdated} names updated, ${results.linkedEmployees} linked`,
+            data: results
+        }, 200);
+        
+    } catch (error) {
+        console.error('[Employee] Sync failed:', error);
+        return corsErrorResponse(
+            request,
+            error.message || 'Failed to sync employees',
+            500
+        );
+    }
+}
+
 export {
     addEmployee,
     listEmployees,
     updateEmployeeData,
     removeEmployee,
-    bulkUploadEmployees
+    bulkUploadEmployees,
+    syncEmployees
 };

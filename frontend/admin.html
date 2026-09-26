@@ -554,13 +554,24 @@
                     <!-- Employee List -->
                     <div class="bg-white rounded-lg shadow-md p-6">
                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-                            <h3 class="text-lg font-semibold text-gray-700">📋 Daftar Semua Karyawan</h3>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-700">📋 Daftar Semua Karyawan</h3>
+                                <p class="text-xs text-gray-500 mt-1">Sinkronkan dengan karyawan terdaftar untuk update status enrolled</p>
+                            </div>
                             
-                            <!-- Search -->
-                            <div class="w-full md:w-64">
-                                <input type="text" id="search-employee-data" 
-                                       placeholder="🔍 Cari nama, ID, role..." 
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                                <!-- Sync Button -->
+                                <button id="sync-employees-btn" 
+                                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition whitespace-nowrap">
+                                    🔄 Sinkronkan Data
+                                </button>
+                                
+                                <!-- Search -->
+                                <div class="w-full md:w-64">
+                                    <input type="text" id="search-employee-data" 
+                                           placeholder="🔍 Cari nama, ID, role..." 
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                </div>
                             </div>
                         </div>
                         
