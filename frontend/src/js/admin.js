@@ -269,6 +269,22 @@ function setupEventListeners() {
         absentCard.addEventListener('click', showAbsentEmployeesModal);
     }
     
+    // Roster Card Click Listener - Navigate to Roster Schedule
+    const rosterCard = document.getElementById('roster-card');
+    if (rosterCard) {
+        rosterCard.addEventListener('click', () => {
+            switchTab('roster');
+        });
+    }
+    
+    // Present Card Click Listener - Navigate to Attendance Today
+    const presentCard = document.getElementById('present-card');
+    if (presentCard) {
+        presentCard.addEventListener('click', () => {
+            switchTab('attendance');
+        });
+    }
+    
     // Absent Modal Close Listeners
     const closeAbsentModal = document.getElementById('close-absent-modal');
     const closeAbsentModalBtn = document.getElementById('close-absent-modal-btn');
