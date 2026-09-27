@@ -294,6 +294,12 @@ function setupEventListeners() {
     if (closeAbsentModalBtn) {
         closeAbsentModalBtn.addEventListener('click', hideAbsentEmployeesModal);
     }
+    
+    // Absent Modal Export Button
+    const exportAbsentPngBtn = document.getElementById('export-absent-png-btn');
+    if (exportAbsentPngBtn) {
+        exportAbsentPngBtn.addEventListener('click', handleExportAbsentToPNG);
+    }
 }
 
 /**
@@ -1143,6 +1149,131 @@ function renderAbsentEmployeesList(employees) {
         `;
         absentList.appendChild(row);
     });
+}
+
+/**
+ * Handle export absent employees to PNG
+ */
+async function handleExportAbsentToPNG() {
+    if (!todayRosterData || !todayRosterData.data || !todayRosterData.data.not_clocked_in) {
+        showNotification('Tidak ada data untuk di-export', 'error');
+        return;
+    }
+    
+    const absentEmployees = todayRosterData.data.not_clocked_in || [];
+    
+    if (absentEmployees.length === 0) {
+        showNotification('Semua karyawan roster sudah clock in. Tidak ada yang perlu di-export.', 'info');
+        return;
+    }
+    
+    try {
+        showLoading('Menyiapkan export...');
+        
+        // Get today's date for title
+        const today = getTodayWIB();
+        const dateObj = new Date(today);
+        const formattedDate = dateObj.toLocaleDateString('id-ID', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        
+        // Create a temporary container for export
+        const exportContainer = document.createElement('div');
+        exportContainer.style.position = 'absolute';
+        exportContainer.style.left = '-9999px';
+        exportContainer.style.background = 'white';
+        exportContainer.style.padding = '40px';
+        exportContainer.style.width = '1200px';
+        
+        // Build HTML content
+        exportContainer.innerHTML = `
+            <div style="font-family: Arial, sans-serif;">
+                <!-- Header -->
+                <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #f59e0b; padding-bottom: 20px;">
+                    <h1 style="color: #f59e0b; font-size: 32px; margin: 0 0 10px 0;">SPX Soko Hub</h1>
+                    <h2 style="color: #1f2937; font-size: 24px; margin: 0 0 10px 0;">Daftar Karyawan Belum Absen</h2>
+                    <p style="color: #6b7280; font-size: 16px; margin: 0;">${formattedDate}</p>
+                </div>
+                
+                <!-- Summary Badge -->
+                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 25px; border-radius: 4px;">
+                    <p style="color: #92400e; font-size: 14px; margin: 0;">
+                        <strong>Total ${absentEmployees.length} karyawan</strong> dalam roster hari ini belum melakukan absensi.
+                    </p>
+                </div>
+                
+                <!-- Table -->
+                <table style="width: 100%; border-collapse: collapse; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <thead>
+                        <tr style="background: #f3f4f6;">
+                            <th style="padding: 12px; text-align: left; border: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-transform: uppercase;">No</th>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-transform: uppercase;">Employee ID</th>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-transform: uppercase;">Nama</th>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-transform: uppercase;">Jabatan</th>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-transform: uppercase;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${absentEmployees.map((emp, index) => `
+                            <tr style="${index % 2 === 0 ? 'background: white;' : 'background: #f9fafb;'}">
+                                <td style="padding: 12px; border: 1px solid #e5e7eb; font-size: 14px; color: #1f2937; text-align: center;">${index + 1}</td>
+                                <td style="padding: 12px; border: 1px solid #e5e7eb; font-size: 14px; color: #1f2937; font-weight: 600;">${escapeHtml(emp.employee_id)}</td>
+                                <td style="padding: 12px; border: 1px solid #e5e7eb; font-size: 14px; color: #1f2937;">${escapeHtml(emp.employee_name)}</td>
+                                <td style="padding: 12px; border: 1px solid #e5e7eb; font-size: 14px; color: #6b7280;">${escapeHtml(emp.role || '-')}</td>
+                                <td style="padding: 12px; border: 1px solid #e5e7eb;">
+                                    <span style="display: inline-block; padding: 4px 12px; background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 600; border-radius: 9999px;">✗ Belum Absen</span>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                
+                <!-- Footer -->
+                <div style="margin-top: 30px; text-align: center; color: #9ca3af; font-size: 12px;">
+                    <p style="margin: 0;">Generated on ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB</p>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(exportContainer);
+        
+        // Use html2canvas to capture
+        const canvas = await html2canvas(exportContainer, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            logging: false,
+            allowTaint: true,
+            useCORS: true
+        });
+        
+        // Remove temporary container
+        document.body.removeChild(exportContainer);
+        
+        // Convert to blob and download
+        canvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const filename = `Belum_Absen_${today.replace(/-/g, '')}.png`;
+            
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            hideLoading();
+            showNotification(`✅ Export berhasil: ${filename}`, 'success');
+        });
+        
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to export absent list to PNG', error);
+        showNotification('Gagal export: ' + error.message, 'error');
+    }
 }
 
 /**
