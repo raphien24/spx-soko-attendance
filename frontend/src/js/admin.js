@@ -2792,8 +2792,8 @@ async function handleSaveRoster() {
         return;
     }
     
-    // Collect all selected employee IDs (flatten all districts)
-    const allEmployeeIds = [];
+    // Collect all employee data with district info
+    const employeeData = [];
     const districts = ['SOKO', 'RENGEL', 'GRABAGAN'];
     
     for (const role in selectedEmployees) {
@@ -2802,19 +2802,25 @@ async function handleSaveRoster() {
             districts.forEach(district => {
                 if (selectedEmployees[role][district]) {
                     selectedEmployees[role][district].forEach(emp => {
-                        allEmployeeIds.push(emp.employee_id);
+                        employeeData.push({
+                            employee_id: emp.employee_id,
+                            district: district
+                        });
                     });
                 }
             });
         } else if (Array.isArray(selectedEmployees[role])) {
-            // Old structure (backward compatibility)
+            // Old structure (backward compatibility) - default to SOKO
             selectedEmployees[role].forEach(emp => {
-                allEmployeeIds.push(emp.employee_id);
+                employeeData.push({
+                    employee_id: emp.employee_id,
+                    district: 'SOKO'
+                });
             });
         }
     }
     
-    if (allEmployeeIds.length === 0) {
+    if (employeeData.length === 0) {
         showNotification('Belum ada karyawan yang dipilih', 'error');
         return;
     }
@@ -2831,30 +2837,10 @@ async function handleSaveRoster() {
             debugLog('No existing roster to delete or delete failed:', deleteError);
         }
         
-        // Step 2: Save new roster
-        await createRosterSchedule(date, allEmployeeIds);
+        // Step 2: Save new roster with district data
+        await createRosterSchedule(date, employeeData);
         
-        // Step 3: Save district mapping to localStorage
-        const districtMapping = {};
-        for (const role in selectedEmployees) {
-            if (typeof selectedEmployees[role] === 'object' && !Array.isArray(selectedEmployees[role])) {
-                districts.forEach(district => {
-                    if (selectedEmployees[role][district]) {
-                        selectedEmployees[role][district].forEach(emp => {
-                            districtMapping[emp.employee_id] = {
-                                district: district,
-                                role: role
-                            };
-                        });
-                    }
-                });
-            }
-        }
-        
-        // Store in localStorage with date as key
-        localStorage.setItem(`roster_district_${date}`, JSON.stringify(districtMapping));
-        
-        // Step 4: Fetch attendance data and update summary cards
+        // Step 3: Fetch attendance data and update summary cards
         try {
             const response = await checkRosterAttendance(date);
             updateSummary(response); // Update with real attendance data
@@ -2865,7 +2851,7 @@ async function handleSaveRoster() {
         }
         
         hideLoading();
-        showNotification(`Roster berhasil disimpan: ${allEmployeeIds.length} karyawan`, 'success');
+        showNotification(`Roster berhasil disimpan: ${employeeData.length} karyawan`, 'success');
     } catch (error) {
         hideLoading();
         errorLog('Failed to save roster', error);
@@ -2910,16 +2896,11 @@ async function handleLoadRosterData() {
             return;
         }
         
-        // Load district mapping from localStorage
-        const districtMappingStr = localStorage.getItem(`roster_district_${date}`);
-        const districtMapping = districtMappingStr ? JSON.parse(districtMappingStr) : {};
-        
         // Populate from loaded data
         roster.forEach(item => {
             const role = item.role;
-            // Get district from localStorage mapping, fallback to SOKO
-            const savedInfo = districtMapping[item.employee_id];
-            const district = savedInfo?.district || 'SOKO';
+            // Get district from database (district column)
+            const district = item.district || 'SOKO'; // Fallback to SOKO if null
             
             if (!selectedEmployees[role]) {
                 selectedEmployees[role] = { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] };

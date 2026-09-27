@@ -505,11 +505,11 @@ async function syncEmployeesWithUsers() {
 // ROSTER SCHEDULE API
 // ============================================
 
-async function createRosterSchedule(date, employeeIds) {
+async function createRosterSchedule(date, employeeData) {
     try {
         const response = await apiPost('/api/roster', {
             date,
-            employee_ids: employeeIds
+            employee_data: employeeData
         });
         debugLog('Roster created:', response.data);
         return response;

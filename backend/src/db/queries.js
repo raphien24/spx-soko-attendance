@@ -704,14 +704,15 @@ async function syncEmployeesWithUsers(db) {
  * @param {string} rosterData.date - YYYY-MM-DD format
  * @param {string} rosterData.employee_id - Employee ID
  * @param {string} rosterData.employee_name - Employee name
+ * @param {string} rosterData.district - District (SOKO, RENGEL, GRABAGAN)
  * @param {string} rosterData.created_at - ISO 8601 timestamp
  * @param {string} rosterData.created_by - Admin user (optional)
  * @returns {Promise<Object>} Result object
  */
 async function insertRoster(db, rosterData) {
     const stmt = db.prepare(
-        `INSERT INTO roster_schedule (id, date, employee_id, employee_name, created_at, created_by) 
-         VALUES (?, ?, ?, ?, ?, ?)`
+        `INSERT INTO roster_schedule (id, date, employee_id, employee_name, district, created_at, created_by) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
     );
     
     return await stmt
@@ -720,6 +721,7 @@ async function insertRoster(db, rosterData) {
             rosterData.date,
             rosterData.employee_id,
             rosterData.employee_name,
+            rosterData.district || 'SOKO',
             rosterData.created_at,
             rosterData.created_by || null
         )
@@ -800,7 +802,7 @@ async function deleteRosterByDate(db, date) {
  * Returns roster with attendance info (clocked in or not)
  * @param {D1Database} db 
  * @param {string} date - YYYY-MM-DD format
- * @returns {Promise<Array>} Array of roster entries with attendance status
+ * @returns {Promise<Array>} Array of roster entries with attendance status and district
  */
 async function getRosterWithAttendance(db, date) {
     const stmt = db.prepare(
@@ -809,6 +811,7 @@ async function getRosterWithAttendance(db, date) {
             r.date,
             r.employee_id,
             r.employee_name,
+            r.district,
             e.role,
             e.enrolled_status,
             CASE 

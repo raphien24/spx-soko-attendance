@@ -49,15 +49,28 @@ async function createRoster(request, env) {
             return corsErrorResponse(request, 'Invalid JSON payload', 400);
         }
         
-        const { date, employee_ids } = payload;
+        const { date, employee_ids, employee_data } = payload;
         
-        // Validate required fields
-        if (!date || !employee_ids || !Array.isArray(employee_ids) || employee_ids.length === 0) {
+        // Support both old format (employee_ids) and new format (employee_data with district)
+        let employeeList = [];
+        
+        if (employee_data && Array.isArray(employee_data) && employee_data.length > 0) {
+            // New format: [{ employee_id, district }]
+            employeeList = employee_data;
+        } else if (employee_ids && Array.isArray(employee_ids) && employee_ids.length > 0) {
+            // Old format: ["123", "456"] - default to SOKO district
+            employeeList = employee_ids.map(id => ({ employee_id: id, district: 'SOKO' }));
+        } else {
             return corsErrorResponse(
                 request,
-                'Missing required fields: date (YYYY-MM-DD), employee_ids (array)',
+                'Missing required fields: date (YYYY-MM-DD), employee_data (array) or employee_ids (array)',
                 400
             );
+        }
+        
+        // Validate date
+        if (!date) {
+            return corsErrorResponse(request, 'Missing required field: date (YYYY-MM-DD)', 400);
         }
         
         // Validate date format (YYYY-MM-DD)
@@ -77,7 +90,10 @@ async function createRoster(request, env) {
         };
         
         // Process each employee
-        for (const employee_id of employee_ids) {
+        for (const empData of employeeList) {
+            const employee_id = empData.employee_id;
+            const district = empData.district || 'SOKO';
+            
             try {
                 // Check if employee exists
                 const employee = await getEmployeeByEmployeeId(env.DB, employee_id);
@@ -100,12 +116,13 @@ async function createRoster(request, env) {
                     continue;
                 }
                 
-                // Create roster entry
+                // Create roster entry with district
                 const rosterData = {
                     id: generateUUID(),
                     date,
                     employee_id,
                     employee_name: employee.name,
+                    district,
                     created_at,
                     created_by: null // TODO: Add admin user tracking
                 };
@@ -114,10 +131,11 @@ async function createRoster(request, env) {
                 
                 results.success.push({
                     employee_id,
-                    name: employee.name
+                    name: employee.name,
+                    district
                 });
                 
-                console.log(`[Roster] Added to roster: ${employee_id} - ${employee.name} on ${date}`);
+                console.log(`[Roster] Added to roster: ${employee_id} - ${employee.name} (${district}) on ${date}`);
                 
             } catch (error) {
                 console.error(`[Roster] Failed to add ${employee_id}:`, error);
@@ -133,7 +151,7 @@ async function createRoster(request, env) {
             message: `Roster created: ${results.success.length} added, ${results.skipped.length} skipped, ${results.failed.length} failed`,
             data: {
                 date,
-                total_requested: employee_ids.length,
+                total_requested: employeeList.length,
                 added: results.success,
                 skipped: results.skipped,
                 failed: results.failed
