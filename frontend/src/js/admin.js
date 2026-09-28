@@ -3355,7 +3355,12 @@ function initOffScheduleTab() {
     offScheduleRoleFilter = document.getElementById('off-schedule-role-filter');
     refreshOffScheduleBtn = document.getElementById('refresh-off-schedule-btn');
     
-    if (!offScheduleTab) return;
+    if (!offScheduleTab) {
+        console.warn('[OffSchedule] Tab element not found');
+        return;
+    }
+    
+    console.log('[OffSchedule] Initializing off schedule tab');
     
     // Role filter change event
     if (offScheduleRoleFilter) {
@@ -3371,14 +3376,22 @@ function initOffScheduleTab() {
     
     // Add employee buttons (for each day)
     const addOffEmployeeBtns = offScheduleTab.querySelectorAll('.add-off-employee-btn');
+    console.log(`[OffSchedule] Found ${addOffEmployeeBtns.length} add buttons`);
+    
     addOffEmployeeBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             const day = parseInt(e.target.getAttribute('data-day'));
+            console.log(`[OffSchedule] Add button clicked for day ${day}`);
             openOffEmployeeModal(day);
         });
     });
     
-    // Load initial data
+    // Load employees cache if not already loaded
+    if (!allEmployeesCache || allEmployeesCache.length === 0) {
+        loadAllEmployeesForRoster();
+    }
+    
+    // Load initial off schedule data
     loadOffScheduleData();
 }
 
