@@ -3492,7 +3492,19 @@ function openOffEmployeeModal(day) {
     const modalTitle = modal ? modal.querySelector('h3') : null;
     const addSelectedBtn = document.getElementById('add-selected-employees-btn');
     
-    if (!modal || !modalList) return;
+    console.log('[OffSchedule] Opening modal, elements found:', {
+        modal: !!modal,
+        modalList: !!modalList,
+        searchInput: !!searchInput,
+        addSelectedBtn: !!addSelectedBtn,
+        allEmployeesCache: allEmployeesCache.length
+    });
+    
+    if (!modal || !modalList) {
+        console.error('[OffSchedule] Modal elements not found!');
+        showNotification('Error: Modal tidak ditemukan. Coba refresh halaman.', 'error');
+        return;
+    }
     
     // Day names for display
     const dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
@@ -3516,6 +3528,8 @@ function openOffEmployeeModal(day) {
         .map(item => item.employee_id);
     
     availableEmployees = availableEmployees.filter(emp => !alreadyOffIds.includes(emp.employee_id));
+    
+    console.log('[OffSchedule] Available employees:', availableEmployees.length);
     
     // Render employee list
     if (availableEmployees.length === 0) {
@@ -3554,6 +3568,7 @@ function openOffEmployeeModal(day) {
     }
     
     // Show modal
+    console.log('[OffSchedule] Showing modal...');
     modal.classList.remove('hidden');
 }
 
