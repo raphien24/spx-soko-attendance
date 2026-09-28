@@ -1036,7 +1036,7 @@
                     
                     <!-- Employee Selection Modal (Hidden by default) -->
                     <div id="employee-select-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                        <div class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
                             <div class="flex justify-between items-center mb-4">
                                 <h3 class="text-lg font-bold">Pilih Karyawan</h3>
                                 <button id="close-modal-btn" class="text-gray-500 hover:text-gray-700">
@@ -1052,8 +1052,17 @@
                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg">
                             </div>
                             
-                            <div id="modal-employee-list" class="space-y-2">
+                            <div id="modal-employee-list" class="space-y-2 overflow-y-auto flex-1 mb-4">
                                 <!-- Employee checkboxes will be populated here -->
+                            </div>
+                            
+                            <div class="flex justify-end gap-3 pt-4 border-t">
+                                <button id="cancel-modal-btn" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold rounded-lg transition">
+                                    Batal
+                                </button>
+                                <button id="add-selected-employees-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
+                                    Tambahkan yang Dipilih
+                                </button>
                             </div>
                         </div>
                     </div>
