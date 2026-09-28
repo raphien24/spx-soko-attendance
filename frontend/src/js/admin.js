@@ -357,7 +357,10 @@ function switchTab(tabName) {
             break;
         case 'off-schedule':
             if (offScheduleTab) offScheduleTab.classList.remove('hidden');
-            // Data loaded in initOffScheduleTab
+            // Load employees if not already loaded
+            if (!allEmployeesCache || allEmployeesCache.length === 0) {
+                loadAllEmployeesForRoster();
+            }
             break;
         case 'records':
             if (recordsTab) recordsTab.classList.remove('hidden');
@@ -3350,7 +3353,7 @@ function renderRosterTable(data, date) {
 /**
  * Initialize off schedule tab elements
  */
-function initOffScheduleTab() {
+async function initOffScheduleTab() {
     offScheduleTab = document.getElementById('off-schedule-tab');
     offScheduleRoleFilter = document.getElementById('off-schedule-role-filter');
     refreshOffScheduleBtn = document.getElementById('refresh-off-schedule-btn');
@@ -3379,20 +3382,26 @@ function initOffScheduleTab() {
     console.log(`[OffSchedule] Found ${addOffEmployeeBtns.length} add buttons`);
     
     addOffEmployeeBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             const day = parseInt(e.target.getAttribute('data-day'));
             console.log(`[OffSchedule] Add button clicked for day ${day}`);
+            
+            // Ensure employees are loaded before opening modal
+            if (!allEmployeesCache || allEmployeesCache.length === 0) {
+                showLoading('Memuat data karyawan...');
+                await loadAllEmployeesForRoster();
+                hideLoading();
+            }
+            
             openOffEmployeeModal(day);
         });
     });
     
-    // Load employees cache if not already loaded
-    if (!allEmployeesCache || allEmployeesCache.length === 0) {
-        loadAllEmployeesForRoster();
-    }
+    // Load employees cache
+    await loadAllEmployeesForRoster();
     
     // Load initial off schedule data
-    loadOffScheduleData();
+    await loadOffScheduleData();
 }
 
 /**
