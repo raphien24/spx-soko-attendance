@@ -2161,7 +2161,7 @@ async function handleSyncEmployees() {
 // ROSTER SCHEDULE MANAGEMENT
 // ============================================
 
-let rosterTab, rosterDateInput;
+let rosterDateInput;
 let selectedEmployees = {}; // Track selected employees by role
 let allEmployeesCache = []; // Cache all employees
 let currentRosterAttendanceData = null; // Store roster attendance data for modal
