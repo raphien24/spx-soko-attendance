@@ -27,7 +27,12 @@ import {
     deleteRosterEntry,
     deleteRosterByDateEmployee,
     deleteRosterByDate,
-    checkRosterAttendance
+    checkRosterAttendance,
+    // Off schedule
+    createOffSchedule,
+    getOffSchedules,
+    deleteOffSchedule,
+    checkEmployeeOffOnDate
 } from './api.js';
 
 import {
@@ -79,6 +84,7 @@ async function init() {
         // Initialize new tabs
         initEmployeeDataTab();
         initRosterTab();
+        initOffScheduleTab();
         
         // Cek status autentikasi PIN di sesi saat ini
         if (sessionStorage.getItem('admin_authenticated') === 'true') {
@@ -2151,6 +2157,15 @@ async function handleSyncEmployees() {
 let rosterTab, rosterDateInput;
 let selectedEmployees = {}; // Track selected employees by role
 let allEmployeesCache = []; // Cache all employees
+let currentRosterAttendanceData = null; // Store roster attendance data for modal
+
+// ============================================
+// OFF SCHEDULE STATE
+// ============================================
+
+let offScheduleTab, offScheduleRoleFilter, refreshOffScheduleBtn;
+let offScheduleData = []; // All off schedule entries
+let currentOffDay = null; // Currently selected day for adding employee
 let currentDistrict = ''; // Track current district being edited
 let currentRosterAttendanceData = null; // Store roster attendance data for modal
 
@@ -2369,14 +2384,146 @@ function isEmployeeInRoster(employeeId) {
 /**
  * Add selected employees to roster
  */
-function addSelectedEmployees(targetRole, targetDistrict) {
+async function addSelectedEmployees(targetRole, targetDistrict) {
     const modal = document.getElementById('employee-select-modal');
     const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
     
-    checkboxes.forEach(cb => {
+    // Get selected date from roster
+    const rosterDate = rosterDateInput ? rosterDateInput.value : null;
+    
+    if (!rosterDate) {
+        showNotification('Pilih tanggal roster terlebih dahulu', 'error');
+        return;
+    }
+    
+    // Array to hold employees that need confirmation
+    const employeesNeedingConfirmation = [];
+    const employeesToAdd = [];
+    
+    // Check each employee for off schedule
+    for (const cb of checkboxes) {
         const employeeId = cb.value;
         const name = cb.getAttribute('data-name');
         const role = cb.getAttribute('data-role');
+        
+        const empData = {
+            employeeId,
+            name,
+            role,
+            targetDistrict
+        };
+        
+        try {
+            // Check if employee has off schedule on this date
+            const offCheck = await checkEmployeeOffOnDate(employeeId, rosterDate);
+            
+            if (offCheck && offCheck.is_off) {
+                // Employee has off schedule on this date
+                employeesNeedingConfirmation.push(empData);
+            } else {
+                // Employee OK to add
+                employeesToAdd.push(empData);
+            }
+        } catch (error) {
+            // If check fails, proceed without confirmation
+            console.error('Failed to check off schedule:', error);
+            employeesToAdd.push(empData);
+        }
+    }
+    
+    // If no confirmation needed, add all directly
+    if (employeesNeedingConfirmation.length === 0) {
+        addEmployeesToRoster(employeesToAdd, targetRole, targetDistrict);
+        modal.classList.add('hidden');
+        showNotification(`${employeesToAdd.length} karyawan ditambahkan ke ${targetDistrict}`, 'success');
+        return;
+    }
+    
+    // Show confirmation modal for employees with off schedule
+    showOffScheduleConfirmation(employeesNeedingConfirmation, employeesToAdd, targetRole, targetDistrict, modal);
+}
+
+/**
+ * Show confirmation modal for employees with off schedule
+ */
+function showOffScheduleConfirmation(employeesWithOff, employeesOk, targetRole, targetDistrict, employeeModal) {
+    // Create confirmation modal HTML if it doesn't exist
+    let confirmModal = document.getElementById('off-schedule-confirm-modal');
+    
+    if (!confirmModal) {
+        confirmModal = document.createElement('div');
+        confirmModal.id = 'off-schedule-confirm-modal';
+        confirmModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden';
+        confirmModal.innerHTML = `
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+                <div class="p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">⚠️ Peringatan Jadwal Off</h3>
+                    <div id="off-schedule-confirm-content" class="mb-6"></div>
+                    <div class="flex gap-3 justify-end">
+                        <button id="off-schedule-confirm-no" 
+                                class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold rounded-lg transition">
+                            Tidak
+                        </button>
+                        <button id="off-schedule-confirm-yes" 
+                                class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition">
+                            Ya, Tetap Masukkan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(confirmModal);
+    }
+    
+    // Build confirmation message
+    const content = document.getElementById('off-schedule-confirm-content');
+    const employeeNames = employeesWithOff.map(e => `<strong>${escapeHtml(e.name)}</strong>`).join(', ');
+    
+    content.innerHTML = `
+        <p class="text-gray-700 mb-3">
+            Karyawan berikut memiliki jadwal off pada hari ini:
+        </p>
+        <div class="bg-yellow-50 border border-yellow-300 rounded p-3 mb-3">
+            <p class="text-sm">${employeeNames}</p>
+        </div>
+        <p class="text-gray-700 font-semibold">
+            Yakin tetap ingin memasukkan ke roster?
+        </p>
+    `;
+    
+    // Handle button clicks
+    const yesBtn = document.getElementById('off-schedule-confirm-yes');
+    const noBtn = document.getElementById('off-schedule-confirm-no');
+    
+    yesBtn.onclick = () => {
+        // Add all employees (including those with off schedule)
+        const allEmployees = [...employeesOk, ...employeesWithOff];
+        addEmployeesToRoster(allEmployees, targetRole, targetDistrict);
+        confirmModal.classList.add('hidden');
+        if (employeeModal) employeeModal.classList.add('hidden');
+        showNotification(`${allEmployees.length} karyawan ditambahkan ke ${targetDistrict} (termasuk ${employeesWithOff.length} dengan jadwal off)`, 'success');
+    };
+    
+    noBtn.onclick = () => {
+        // Add only employees without off schedule
+        if (employeesOk.length > 0) {
+            addEmployeesToRoster(employeesOk, targetRole, targetDistrict);
+            showNotification(`${employeesOk.length} karyawan ditambahkan ke ${targetDistrict}`, 'success');
+        }
+        confirmModal.classList.add('hidden');
+        if (employeeModal) employeeModal.classList.add('hidden');
+    };
+    
+    // Show confirmation modal
+    confirmModal.classList.remove('hidden');
+}
+
+/**
+ * Helper function to add employees to roster data structure
+ */
+function addEmployeesToRoster(employees, targetRole, targetDistrict) {
+    employees.forEach(emp => {
+        const role = emp.role;
         
         // Initialize structure if needed
         if (!selectedEmployees[role]) {
@@ -2391,8 +2538,8 @@ function addSelectedEmployees(targetRole, targetDistrict) {
         // Add to the specific district
         if (typeof selectedEmployees[role] === 'object' && selectedEmployees[role][targetDistrict]) {
             selectedEmployees[role][targetDistrict].push({
-                employee_id: employeeId,
-                name: name,
+                employee_id: emp.employeeId,
+                name: emp.name,
                 role: role,
                 district: targetDistrict
             });
@@ -2402,11 +2549,6 @@ function addSelectedEmployees(targetRole, targetDistrict) {
     // Update UI
     renderRosterColumns();
     updateSummary();
-    
-    // Close modal
-    modal.classList.add('hidden');
-    
-    showNotification(`${checkboxes.length} karyawan ditambahkan ke ${targetDistrict}`, 'success');
 }
 
 /**
@@ -3193,3 +3335,274 @@ function renderRosterTable(data, date) {
         rosterTableBody.appendChild(row);
     });
 }
+
+
+// ============================================
+// OFF SCHEDULE TAB LOGIC
+// ============================================
+
+/**
+ * Initialize off schedule tab elements
+ */
+function initOffScheduleTab() {
+    offScheduleTab = document.getElementById('off-schedule-tab');
+    offScheduleRoleFilter = document.getElementById('off-schedule-role-filter');
+    refreshOffScheduleBtn = document.getElementById('refresh-off-schedule-btn');
+    
+    if (!offScheduleTab) return;
+    
+    // Role filter change event
+    if (offScheduleRoleFilter) {
+        offScheduleRoleFilter.addEventListener('change', () => {
+            renderOffScheduleGrid();
+        });
+    }
+    
+    // Refresh button
+    if (refreshOffScheduleBtn) {
+        refreshOffScheduleBtn.addEventListener('click', loadOffScheduleData);
+    }
+    
+    // Add employee buttons (for each day)
+    const addOffEmployeeBtns = offScheduleTab.querySelectorAll('.add-off-employee-btn');
+    addOffEmployeeBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const day = parseInt(e.target.getAttribute('data-day'));
+            openOffEmployeeModal(day);
+        });
+    });
+    
+    // Load initial data
+    loadOffScheduleData();
+}
+
+/**
+ * Load off schedule data from API
+ */
+async function loadOffScheduleData() {
+    try {
+        showLoading('Memuat jadwal off...');
+        
+        offScheduleData = await getOffSchedules();
+        
+        renderOffScheduleGrid();
+        
+        hideLoading();
+        debugLog(`Loaded ${offScheduleData.length} off schedule entries`);
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to load off schedule', error);
+        showNotification('Gagal memuat jadwal off: ' + getErrorMessage(error), 'error');
+    }
+}
+
+/**
+ * Render off schedule grid (7 days)
+ */
+function renderOffScheduleGrid() {
+    const roleFilter = offScheduleRoleFilter ? offScheduleRoleFilter.value : 'all';
+    
+    // Filter data by role if selected
+    let filteredData = offScheduleData;
+    if (roleFilter !== 'all') {
+        filteredData = offScheduleData.filter(item => item.role === roleFilter);
+    }
+    
+    // Day names mapping
+    const dayIds = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    
+    // Clear all day lists first
+    dayIds.forEach((dayId, index) => {
+        const listId = `off-${dayId}-list`;
+        const listElement = document.getElementById(listId);
+        if (listElement) {
+            listElement.innerHTML = '';
+        }
+    });
+    
+    // Populate each day
+    for (let day = 1; day <= 7; day++) {
+        const dayData = filteredData.filter(item => item.day_of_week === day);
+        const dayId = dayIds[day - 1];
+        const listId = `off-${dayId}-list`;
+        const listElement = document.getElementById(listId);
+        
+        if (!listElement) continue;
+        
+        if (dayData.length === 0) {
+            listElement.innerHTML = '<p class="text-gray-400 text-center py-4 text-xs italic">Belum ada</p>';
+        } else {
+            listElement.innerHTML = dayData.map(item => `
+                <div class="bg-white border border-gray-300 rounded p-2 shadow-sm">
+                    <div class="flex justify-between items-start gap-2">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-gray-800 text-xs truncate" title="${escapeHtml(item.employee_name)}">${escapeHtml(item.employee_name)}</p>
+                            <p class="text-gray-600 text-xs">${escapeHtml(item.employee_id)}</p>
+                            <p class="text-gray-500 text-xs italic">${escapeHtml(item.role)}</p>
+                        </div>
+                        <button onclick="handleRemoveFromOffDay('${item.id}', '${escapeHtml(item.employee_name)}')" 
+                                class="text-red-600 hover:text-red-800 font-bold text-lg leading-none" 
+                                title="Hapus dari jadwal off">
+                            ×
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+}
+
+/**
+ * Open employee modal for selecting off day employees
+ */
+function openOffEmployeeModal(day) {
+    currentOffDay = day;
+    
+    const modal = document.getElementById('employee-select-modal');
+    const modalList = document.getElementById('modal-employee-list');
+    const searchInput = document.getElementById('modal-search-employee');
+    const modalTitle = modal ? modal.querySelector('h3') : null;
+    const addSelectedBtn = document.getElementById('add-selected-employees-btn');
+    
+    if (!modal || !modalList) return;
+    
+    // Day names for display
+    const dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+    
+    // Update modal title
+    if (modalTitle) {
+        modalTitle.textContent = `Pilih Karyawan Off - ${dayNames[day - 1]}`;
+    }
+    
+    // Filter by role if selected
+    const roleFilter = offScheduleRoleFilter ? offScheduleRoleFilter.value : 'all';
+    let availableEmployees = allEmployeesCache;
+    
+    if (roleFilter !== 'all') {
+        availableEmployees = availableEmployees.filter(emp => emp.role === roleFilter);
+    }
+    
+    // Filter: only show employees not already in this day's off schedule
+    const alreadyOffIds = offScheduleData
+        .filter(item => item.day_of_week === day)
+        .map(item => item.employee_id);
+    
+    availableEmployees = availableEmployees.filter(emp => !alreadyOffIds.includes(emp.employee_id));
+    
+    // Render employee list
+    if (availableEmployees.length === 0) {
+        modalList.innerHTML = '<p class="text-gray-500 text-center py-8">Semua karyawan sudah ada di jadwal off hari ini</p>';
+    } else {
+        modalList.innerHTML = availableEmployees.map(emp => `
+            <label class="flex items-center space-x-3 p-3 hover:bg-gray-100 rounded cursor-pointer">
+                <input type="checkbox" value="${emp.employee_id}" 
+                       data-name="${escapeHtml(emp.name)}" 
+                       data-role="${escapeHtml(emp.role)}"
+                       class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                <div class="flex-1">
+                    <p class="font-medium text-gray-900">${escapeHtml(emp.name)}</p>
+                    <p class="text-sm text-gray-600">${escapeHtml(emp.employee_id)} • ${escapeHtml(emp.role)}</p>
+                </div>
+            </label>
+        `).join('');
+    }
+    
+    // Search functionality
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.oninput = () => {
+            const term = searchInput.value.toLowerCase();
+            const labels = modalList.querySelectorAll('label');
+            labels.forEach(label => {
+                const text = label.textContent.toLowerCase();
+                label.style.display = text.includes(term) ? '' : 'none';
+            });
+        };
+    }
+    
+    // Update button click handler
+    if (addSelectedBtn) {
+        addSelectedBtn.onclick = () => handleAddToOffDay(day);
+    }
+    
+    // Show modal
+    modal.classList.remove('hidden');
+}
+
+/**
+ * Handle adding employees to off day
+ */
+async function handleAddToOffDay(day) {
+    const modalList = document.getElementById('modal-employee-list');
+    const modal = document.getElementById('employee-select-modal');
+    
+    if (!modalList) return;
+    
+    const checkboxes = modalList.querySelectorAll('input[type="checkbox"]:checked');
+    
+    if (checkboxes.length === 0) {
+        showNotification('Pilih minimal 1 karyawan', 'error');
+        return;
+    }
+    
+    // Collect selected employee IDs
+    const employeeIds = Array.from(checkboxes).map(cb => cb.value);
+    
+    try {
+        showLoading('Menyimpan jadwal off...');
+        
+        // Create off schedule entries (one employee at a time for this day)
+        for (const employeeId of employeeIds) {
+            try {
+                await createOffSchedule(employeeId, [day]);
+            } catch (error) {
+                console.error(`Failed to add ${employeeId} to off schedule:`, error);
+            }
+        }
+        
+        // Reload data
+        await loadOffScheduleData();
+        
+        // Close modal
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        
+        hideLoading();
+        showNotification(`${employeeIds.length} karyawan ditambahkan ke jadwal off`, 'success');
+        
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to add to off schedule', error);
+        showNotification('Gagal menambahkan: ' + getErrorMessage(error), 'error');
+    }
+}
+
+/**
+ * Handle removing employee from off day
+ */
+async function handleRemoveFromOffDay(offScheduleId, employeeName) {
+    if (!confirm(`Hapus ${employeeName} dari jadwal off?`)) {
+        return;
+    }
+    
+    try {
+        showLoading('Menghapus...');
+        
+        await deleteOffSchedule(offScheduleId);
+        
+        // Reload data
+        await loadOffScheduleData();
+        
+        hideLoading();
+        showNotification(`${employeeName} dihapus dari jadwal off`, 'success');
+        
+    } catch (error) {
+        hideLoading();
+        errorLog('Failed to remove from off schedule', error);
+        showNotification('Gagal menghapus: ' + getErrorMessage(error), 'error');
+    }
+}
+
+// Make function global for onclick handlers
+window.handleRemoveFromOffDay = handleRemoveFromOffDay;

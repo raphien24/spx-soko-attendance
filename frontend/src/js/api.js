@@ -423,6 +423,12 @@ export {
     deleteRosterByDate,
     checkRosterAttendance,
     
+    // Off schedule
+    createOffSchedule,
+    getOffSchedules,
+    deleteOffSchedule,
+    checkEmployeeOffOnDate,
+    
     // Utilities
     testConnection,
     getErrorMessage,
@@ -583,6 +589,94 @@ async function checkRosterAttendance(date) {
         return response;
     } catch (error) {
         errorLog('Failed to check roster attendance', error);
+        throw error;
+    }
+}
+
+// ============================================
+// OFF SCHEDULE API
+// ============================================
+
+/**
+ * Create off schedule for an employee
+ * @param {string} employeeId - Employee ID
+ * @param {Array<number>} daysOfWeek - Array of days (1=Monday to 7=Sunday)
+ * @returns {Promise<Object>} Response data
+ */
+async function createOffSchedule(employeeId, daysOfWeek) {
+    try {
+        const response = await apiPost('/api/off-schedule', {
+            employee_id: employeeId,
+            days_of_week: daysOfWeek
+        });
+        debugLog('Off schedule created:', response.data);
+        return response;
+    } catch (error) {
+        errorLog('Failed to create off schedule', error);
+        throw error;
+    }
+}
+
+/**
+ * Get off schedules
+ * @param {string} employeeId - Optional: filter by employee
+ * @param {number} dayOfWeek - Optional: filter by day (1-7)
+ * @returns {Promise<Array>} Array of off schedule entries
+ */
+async function getOffSchedules(employeeId = null, dayOfWeek = null) {
+    try {
+        let endpoint = '/api/off-schedule';
+        const params = [];
+        
+        if (employeeId) {
+            params.push(`employee_id=${employeeId}`);
+        }
+        if (dayOfWeek) {
+            params.push(`day_of_week=${dayOfWeek}`);
+        }
+        
+        if (params.length > 0) {
+            endpoint += '?' + params.join('&');
+        }
+        
+        const response = await apiGet(endpoint);
+        debugLog(`Fetched ${response.count} off schedule entries`);
+        return response.data;
+    } catch (error) {
+        errorLog('Failed to fetch off schedules', error);
+        throw error;
+    }
+}
+
+/**
+ * Delete off schedule entry
+ * @param {string} offScheduleId - Off schedule entry ID
+ * @returns {Promise<Object>} Response data
+ */
+async function deleteOffSchedule(offScheduleId) {
+    try {
+        const response = await apiDelete(`/api/off-schedule/${offScheduleId}`);
+        debugLog('Off schedule deleted:', offScheduleId);
+        return response;
+    } catch (error) {
+        errorLog('Failed to delete off schedule', error);
+        throw error;
+    }
+}
+
+/**
+ * Check if employee has off schedule on specific date
+ * @param {string} employeeId - Employee ID
+ * @param {string} date - YYYY-MM-DD format
+ * @returns {Promise<Object>} Response with is_off boolean
+ */
+async function checkEmployeeOffOnDate(employeeId, date) {
+    try {
+        const response = await apiGet(`/api/off-schedule/check?employee_id=${employeeId}&date=${date}`);
+        debugLog('Off schedule check:', response.data);
+        return response.data;
+    } catch (error) {
+        errorLog('Failed to check off schedule', error);
         throw error;
     }
 }

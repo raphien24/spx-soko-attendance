@@ -53,6 +53,13 @@ import {
     checkAttendance
 } from './handlers/roster.js';
 
+import {
+    createOffSchedule,
+    getOffSchedule,
+    removeOffSchedule,
+    checkOffScheduleOnDate
+} from './handlers/offSchedule.js';
+
 // Import CORS utilities
 import {
     handleCorsPreFlight,
@@ -231,6 +238,26 @@ async function handleRequest(request, env, ctx) {
                 response = await removeRoster(request, env, rosterId);
             } else {
                 response = corsErrorResponse(request, 'Roster ID is required', 400);
+            }
+        }
+        
+        // Off Schedule endpoints
+        else if (pathname === '/api/off-schedule' && method === 'POST') {
+            response = await createOffSchedule(request, env);
+        }
+        else if (pathname === '/api/off-schedule' && method === 'GET') {
+            response = await getOffSchedule(request, env);
+        }
+        else if (pathname === '/api/off-schedule/check' && method === 'GET') {
+            response = await checkOffScheduleOnDate(request, env);
+        }
+        else if (pathname.startsWith('/api/off-schedule/') && method === 'DELETE') {
+            // DELETE /api/off-schedule/:id
+            const offScheduleId = pathname.split('/')[3];
+            if (offScheduleId && offScheduleId !== 'check') {
+                response = await removeOffSchedule(request, env, offScheduleId);
+            } else {
+                response = corsErrorResponse(request, 'Off schedule ID is required', 400);
             }
         }
         

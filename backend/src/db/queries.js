@@ -435,7 +435,15 @@ export {
     deleteRosterByDateAndEmployee,
     deleteRosterByDate,
     getRosterWithAttendance,
-    isEmployeeRostered
+    isEmployeeRostered,
+    
+    // Off schedule queries
+    insertOffSchedule,
+    getOffScheduleByEmployee,
+    getAllOffSchedules,
+    deleteOffSchedule,
+    checkEmployeeOffOnDate,
+    getOffSchedulesByDay
 };
 
 // ============================================
@@ -844,4 +852,127 @@ async function isEmployeeRostered(db, date, employeeId) {
     );
     const result = await stmt.bind(date, employeeId).first();
     return !!result;
+}
+
+// ============================================
+// OFF SCHEDULE QUERIES
+// ============================================
+
+/**
+ * Insert off schedule entry
+ * @param {D1Database} db 
+ * @param {Object} offData 
+ * @param {string} offData.id - UUID
+ * @param {string} offData.employee_id - Employee ID
+ * @param {number} offData.day_of_week - 1=Monday to 7=Sunday
+ * @param {string} offData.created_at - ISO 8601 timestamp
+ * @param {string} offData.created_by - Admin user (optional)
+ * @returns {Promise<Object>} Result object
+ */
+async function insertOffSchedule(db, offData) {
+    const stmt = db.prepare(
+        `INSERT INTO off_schedule (id, employee_id, day_of_week, created_at, created_by) 
+         VALUES (?, ?, ?, ?, ?)`
+    );
+    
+    return await stmt
+        .bind(
+            offData.id,
+            offData.employee_id,
+            offData.day_of_week,
+            offData.created_at,
+            offData.created_by || null
+        )
+        .run();
+}
+
+/**
+ * Get off schedule for a specific employee
+ * @param {D1Database} db 
+ * @param {string} employeeId - Employee ID
+ * @returns {Promise<Array>} Array of off schedule entries
+ */
+async function getOffScheduleByEmployee(db, employeeId) {
+    const stmt = db.prepare(
+        `SELECT o.*, e.name as employee_name, e.role
+         FROM off_schedule o
+         LEFT JOIN employees e ON o.employee_id = e.employee_id
+         WHERE o.employee_id = ?
+         ORDER BY o.day_of_week ASC`
+    );
+    const result = await stmt.bind(employeeId).all();
+    return result.results || [];
+}
+
+/**
+ * Get all off schedules (with employee info)
+ * @param {D1Database} db 
+ * @returns {Promise<Array>} Array of all off schedule entries
+ */
+async function getAllOffSchedules(db) {
+    const stmt = db.prepare(
+        `SELECT o.*, e.name as employee_name, e.role
+         FROM off_schedule o
+         LEFT JOIN employees e ON o.employee_id = e.employee_id
+         ORDER BY e.role ASC, e.name ASC, o.day_of_week ASC`
+    );
+    const result = await stmt.all();
+    return result.results || [];
+}
+
+/**
+ * Get off schedules by specific day of week
+ * @param {D1Database} db 
+ * @param {number} dayOfWeek - 1=Monday to 7=Sunday
+ * @returns {Promise<Array>} Array of off schedule entries for that day
+ */
+async function getOffSchedulesByDay(db, dayOfWeek) {
+    const stmt = db.prepare(
+        `SELECT o.*, e.name as employee_name, e.role
+         FROM off_schedule o
+         LEFT JOIN employees e ON o.employee_id = e.employee_id
+         WHERE o.day_of_week = ?
+         ORDER BY e.role ASC, e.name ASC`
+    );
+    const result = await stmt.bind(dayOfWeek).all();
+    return result.results || [];
+}
+
+/**
+ * Delete off schedule entry
+ * @param {D1Database} db 
+ * @param {string} offScheduleId - Off schedule UUID
+ * @returns {Promise<Object>} Result object
+ */
+async function deleteOffSchedule(db, offScheduleId) {
+    const stmt = db.prepare(`DELETE FROM off_schedule WHERE id = ?`);
+    return await stmt.bind(offScheduleId).run();
+}
+
+/**
+ * Check if employee has off schedule on a specific date
+ * @param {D1Database} db 
+ * @param {string} employeeId - Employee ID
+ * @param {string} date - YYYY-MM-DD format
+ * @returns {Promise<Object|null>} Off schedule entry if found, null otherwise
+ */
+async function checkEmployeeOffOnDate(db, employeeId, date) {
+    // Convert date string to day of week (1=Monday to 7=Sunday)
+    const dateObj = new Date(date + 'T00:00:00Z');
+    let dayOfWeek = dateObj.getUTCDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+    
+    // Convert to our format: 1=Monday to 7=Sunday
+    if (dayOfWeek === 0) {
+        dayOfWeek = 7; // Sunday
+    }
+    
+    const stmt = db.prepare(
+        `SELECT o.*, e.name as employee_name, e.role
+         FROM off_schedule o
+         LEFT JOIN employees e ON o.employee_id = e.employee_id
+         WHERE o.employee_id = ? AND o.day_of_week = ?`
+    );
+    
+    const result = await stmt.bind(employeeId, dayOfWeek).first();
+    return result;
 }
