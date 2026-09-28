@@ -2167,7 +2167,6 @@ let offScheduleTab, offScheduleRoleFilter, refreshOffScheduleBtn;
 let offScheduleData = []; // All off schedule entries
 let currentOffDay = null; // Currently selected day for adding employee
 let currentDistrict = ''; // Track current district being edited
-let currentRosterAttendanceData = null; // Store roster attendance data for modal
 
 /**
  * Initialize roster tab elements
