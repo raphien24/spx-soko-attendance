@@ -41,7 +41,7 @@ import {
 
 // DOM Elements
 let tabButtons, tabContents;
-let dashboardTab, attendanceTab, employeesTab, recordsTab, hubSettingsTab;
+let dashboardTab, attendanceTab, employeesTab, recordsTab, hubSettingsTab, rosterTab, offScheduleTab;
 let statsCards, totalEmployeesCard, presentTodayCard, absentTodayCard, totalScansCard;
 let todayAttendanceTableBody, allEmployeesTableBody, recordsTableBody;
 let loadingOverlay, loadingMessage;
@@ -115,6 +115,8 @@ function getDOMElements() {
     employeesTab = document.getElementById('employees-tab');
     recordsTab = document.getElementById('records-tab');
     hubSettingsTab = document.getElementById('hub-settings-tab');
+    rosterTab = document.getElementById('roster-tab');
+    offScheduleTab = document.getElementById('off-schedule-tab');
     
     statsCards = document.getElementById('stats-cards');
     totalEmployeesCard = document.getElementById('total-employees');
@@ -330,6 +332,7 @@ function switchTab(tabName) {
     if (recordsTab) recordsTab.classList.add('hidden');
     if (employeeDataTab) employeeDataTab.classList.add('hidden');
     if (rosterTab) rosterTab.classList.add('hidden');
+    if (offScheduleTab) offScheduleTab.classList.add('hidden');
     if (hubSettingsTab) hubSettingsTab.classList.add('hidden');
     
     switch(tabName) {
@@ -351,6 +354,10 @@ function switchTab(tabName) {
         case 'roster':
             if (rosterTab) rosterTab.classList.remove('hidden');
             // Employees already loaded in initRosterTab via loadAllEmployeesForRoster
+            break;
+        case 'off-schedule':
+            if (offScheduleTab) offScheduleTab.classList.remove('hidden');
+            // Data loaded in initOffScheduleTab
             break;
         case 'records':
             if (recordsTab) recordsTab.classList.remove('hidden');
