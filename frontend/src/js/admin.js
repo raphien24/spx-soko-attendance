@@ -3596,11 +3596,55 @@ async function handleAddToOffDay(day) {
         return;
     }
     
-    // Collect selected employee IDs
-    const employeeIds = Array.from(checkboxes).map(cb => cb.value);
+    // Collect selected employee IDs and names
+    const selectedEmployees = Array.from(checkboxes).map(cb => ({
+        id: cb.value,
+        name: cb.getAttribute('data-name')
+    }));
+    
+    // Check for duplicates (employees already scheduled off on other days in the same week)
+    const duplicates = [];
+    for (const emp of selectedEmployees) {
+        // Find all off days for this employee
+        const existingOffDays = offScheduleData.filter(item => 
+            item.employee_id === emp.id
+        );
+        
+        if (existingOffDays.length > 0) {
+            const dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+            const otherDays = existingOffDays
+                .filter(item => item.day_of_week !== day)
+                .map(item => dayNames[item.day_of_week - 1]);
+            
+            if (otherDays.length > 0) {
+                duplicates.push({
+                    name: emp.name,
+                    days: otherDays
+                });
+            }
+        }
+    }
+    
+    // Show warning if duplicates found
+    if (duplicates.length > 0) {
+        const dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+        const currentDay = dayNames[day - 1];
+        
+        let warningMessage = `⚠️ PERINGATAN: Karyawan berikut sudah memiliki jadwal off di hari lain dalam minggu ini:\n\n`;
+        duplicates.forEach(dup => {
+            warningMessage += `• ${dup.name} → Off di: ${dup.days.join(', ')}\n`;
+        });
+        warningMessage += `\nApakah Anda yakin ingin menambahkan mereka juga ke hari ${currentDay}?`;
+        
+        if (!confirm(warningMessage)) {
+            return; // User cancelled
+        }
+    }
     
     try {
         showLoading('Menyimpan jadwal off...');
+        
+        const employeeIds = selectedEmployees.map(emp => emp.id);
         
         // Create off schedule entries (one employee at a time for this day)
         for (const employeeId of employeeIds) {
