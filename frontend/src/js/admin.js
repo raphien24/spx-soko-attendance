@@ -2259,6 +2259,14 @@ function initRosterTab() {
             modal.classList.add('hidden');
         });
     }
+    
+    // Cancel modal button
+    const cancelModalBtn = document.getElementById('cancel-modal-btn');
+    if (cancelModalBtn) {
+        cancelModalBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+    }
 
     
     // Disable close modal on outside click (removed for better UX)
