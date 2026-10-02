@@ -72,7 +72,8 @@ async function getAllUsers(db) {
     const stmt = db.prepare(
         `SELECT id, employee_id, name, role, photo_url, created_at, updated_at 
          FROM users 
-         ORDER BY created_at DESC`
+         ORDER BY created_at DESC
+         LIMIT 1000`
     );
     const result = await stmt.all();
     return result.results || [];
@@ -87,7 +88,8 @@ async function getAllFaceDescriptors(db) {
     const stmt = db.prepare(
         `SELECT id, employee_id, name, face_descriptor 
          FROM users 
-         ORDER BY name ASC`
+         ORDER BY name ASC
+         LIMIT 1000`
     );
     const result = await stmt.all();
     return result.results || [];
@@ -221,9 +223,10 @@ async function getTodayAttendance(db, userId) {
  * Get all attendance logs for today
  * Uses WIB (UTC+7) timezone for date matching
  * Joins with users table to get role information
+ * Limited to 500 most recent records for performance
  * 
  * @param {D1Database} db 
- * @returns {Promise<Array>} Array of all today's logs
+ * @returns {Promise<Array>} Array of all today's logs (max 500)
  */
 async function getAllTodayLogs(db) {
     // Get current date in WIB timezone
@@ -243,7 +246,8 @@ async function getAllTodayLogs(db) {
          FROM attendance_logs 
          LEFT JOIN users ON attendance_logs.user_id = users.id
          WHERE substr(attendance_logs.timestamp, 1, 10) = ? 
-         ORDER BY attendance_logs.timestamp DESC`
+         ORDER BY attendance_logs.timestamp DESC
+         LIMIT 500`
     );
     
     const result = await stmt.bind(today).all();
@@ -263,11 +267,12 @@ async function getAllTodayLogs(db) {
  * Get attendance logs within date range
  * Uses substr for date extraction to work with WIB timestamps
  * Joins with users table to get role information
+ * Limited to 1000 most recent records for performance
  * 
  * @param {D1Database} db 
  * @param {string} startDate - YYYY-MM-DD
  * @param {string} endDate - YYYY-MM-DD
- * @returns {Promise<Array>} Array of logs
+ * @returns {Promise<Array>} Array of logs (max 1000)
  */
 async function getAttendanceByDateRange(db, startDate, endDate) {
     const stmt = db.prepare(
@@ -278,7 +283,8 @@ async function getAttendanceByDateRange(db, startDate, endDate) {
          LEFT JOIN users ON attendance_logs.user_id = users.id
          WHERE substr(attendance_logs.timestamp, 1, 10) >= ? 
            AND substr(attendance_logs.timestamp, 1, 10) <= ? 
-         ORDER BY attendance_logs.timestamp DESC`
+         ORDER BY attendance_logs.timestamp DESC
+         LIMIT 1000`
     );
     
     const result = await stmt.bind(startDate, endDate).all();
@@ -287,15 +293,18 @@ async function getAttendanceByDateRange(db, startDate, endDate) {
 
 /**
  * Get all attendance history for a specific user
+ * Limited to 200 most recent records for performance
+ * 
  * @param {D1Database} db 
  * @param {string} userId - User UUID
- * @returns {Promise<Array>} Array of user's attendance logs
+ * @returns {Promise<Array>} Array of user's attendance logs (max 200)
  */
 async function getUserAttendanceHistory(db, userId) {
     const stmt = db.prepare(
         `SELECT * FROM attendance_logs 
          WHERE user_id = ? 
-         ORDER BY timestamp DESC`
+         ORDER BY timestamp DESC
+         LIMIT 200`
     );
     
     const result = await stmt.bind(userId).all();
@@ -491,12 +500,14 @@ async function insertEmployee(db, employeeData) {
 
 /**
  * Get all employees (enrolled + not enrolled)
+ * Limited to 1000 most recent for performance
+ * 
  * @param {D1Database} db 
- * @returns {Promise<Array>} Array of employee objects
+ * @returns {Promise<Array>} Array of employee objects (max 1000)
  */
 async function getAllEmployees(db) {
     const stmt = db.prepare(
-        `SELECT * FROM employees ORDER BY created_at DESC`
+        `SELECT * FROM employees ORDER BY created_at DESC LIMIT 1000`
     );
     const result = await stmt.all();
     return result.results || [];
@@ -761,7 +772,8 @@ async function getRosterByDateRange(db, startDate, endDate) {
     const stmt = db.prepare(
         `SELECT * FROM roster_schedule 
          WHERE date >= ? AND date <= ? 
-         ORDER BY date DESC, employee_name ASC`
+         ORDER BY date DESC, employee_name ASC
+         LIMIT 500`
     );
     const result = await stmt.bind(startDate, endDate).all();
     return result.results || [];
@@ -832,7 +844,8 @@ async function getRosterWithAttendance(db, date) {
          LEFT JOIN attendance_logs a ON r.employee_id = a.employee_id 
              AND substr(a.timestamp, 1, 10) = r.date
          WHERE r.date = ?
-         ORDER BY r.employee_name ASC`
+         ORDER BY r.employee_name ASC
+         LIMIT 500`
     );
     
     const result = await stmt.bind(date).all();
@@ -914,7 +927,8 @@ async function getAllOffSchedules(db) {
         `SELECT o.*, e.name as employee_name, e.role
          FROM off_schedule o
          LEFT JOIN employees e ON o.employee_id = e.employee_id
-         ORDER BY e.role ASC, e.name ASC, o.day_of_week ASC`
+         ORDER BY e.role ASC, e.name ASC, o.day_of_week ASC
+         LIMIT 500`
     );
     const result = await stmt.all();
     return result.results || [];
@@ -932,7 +946,8 @@ async function getOffSchedulesByDay(db, dayOfWeek) {
          FROM off_schedule o
          LEFT JOIN employees e ON o.employee_id = e.employee_id
          WHERE o.day_of_week = ?
-         ORDER BY e.role ASC, e.name ASC`
+         ORDER BY e.role ASC, e.name ASC
+         LIMIT 200`
     );
     const result = await stmt.bind(dayOfWeek).all();
     return result.results || [];

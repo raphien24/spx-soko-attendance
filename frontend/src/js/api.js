@@ -6,6 +6,61 @@
 import { API_CONFIG, getApiUrl, debugLog, errorLog } from './config.js';
 
 /**
+ * Simple in-memory cache for API responses
+ * Reduces redundant database queries
+ */
+const apiCache = {
+    data: new Map(),
+    ttl: 2 * 60 * 1000, // 2 minutes cache TTL
+    
+    /**
+     * Get cached value if not expired
+     * @param {string} key - Cache key
+     * @returns {any|null} Cached value or null
+     */
+    get(key) {
+        const item = this.data.get(key);
+        if (!item) return null;
+        
+        // Check if expired
+        if (Date.now() - item.timestamp > this.ttl) {
+            this.data.delete(key);
+            return null;
+        }
+        
+        debugLog(`[Cache HIT] ${key}`);
+        return item.value;
+    },
+    
+    /**
+     * Set cache value with current timestamp
+     * @param {string} key - Cache key
+     * @param {any} value - Value to cache
+     */
+    set(key, value) {
+        this.data.set(key, {
+            value,
+            timestamp: Date.now()
+        });
+        debugLog(`[Cache SET] ${key}`);
+    },
+    
+    /**
+     * Clear specific key or all cache
+     * @param {string|null} key - Cache key to clear, or null for all
+     */
+    clear(key = null) {
+        if (key) {
+            this.data.delete(key);
+            debugLog(`[Cache CLEAR] ${key}`);
+        } else {
+            this.data.clear();
+            debugLog(`[Cache CLEAR] All cache cleared`);
+        }
+    }
+};
+
+/**
  * Base fetch wrapper with error handling
  * @param {string} url - Full URL
  * @param {Object} options - Fetch options
@@ -62,12 +117,21 @@ async function apiFetch(url, options = {}) {
 }
 
 /**
- * GET request helper
+ * GET request helper with caching support
  * @param {string} endpoint - API endpoint
  * @param {boolean} bustCache - Add timestamp to prevent caching (default: true)
+ * @param {boolean} useCache - Use in-memory cache to reduce DB queries (default: true)
  * @returns {Promise<Object>} Response data
  */
-async function apiGet(endpoint, bustCache = true) {
+async function apiGet(endpoint, bustCache = true, useCache = true) {
+    // Check cache first if enabled
+    if (useCache) {
+        const cached = apiCache.get(endpoint);
+        if (cached) {
+            return cached;
+        }
+    }
+    
     let url = getApiUrl(endpoint);
     
     // Add timestamp to prevent browser caching
@@ -76,45 +140,76 @@ async function apiGet(endpoint, bustCache = true) {
         url = `${url}${separator}_t=${Date.now()}`;
     }
     
-    return apiFetch(url, { method: 'GET' });
+    const result = await apiFetch(url, { method: 'GET' });
+    
+    // Store in cache if enabled
+    if (useCache && result) {
+        apiCache.set(endpoint, result);
+    }
+    
+    return result;
 }
 
 /**
  * POST request helper
  * @param {string} endpoint - API endpoint
  * @param {Object} data - Request body
+ * @param {boolean} clearCache - Clear cache after mutation (default: true)
  * @returns {Promise<Object>} Response data
  */
-async function apiPost(endpoint, data) {
+async function apiPost(endpoint, data, clearCache = true) {
     const url = getApiUrl(endpoint);
-    return apiFetch(url, {
+    const result = await apiFetch(url, {
         method: 'POST',
         body: JSON.stringify(data)
     });
+    
+    // Clear cache after mutation to ensure fresh data
+    if (clearCache) {
+        apiCache.clear();
+    }
+    
+    return result;
 }
 
 /**
  * PUT request helper
  * @param {string} endpoint - API endpoint
  * @param {Object} data - Request body
+ * @param {boolean} clearCache - Clear cache after mutation (default: true)
  * @returns {Promise<Object>} Response data
  */
-async function apiPut(endpoint, data) {
+async function apiPut(endpoint, data, clearCache = true) {
     const url = getApiUrl(endpoint);
-    return apiFetch(url, {
+    const result = await apiFetch(url, {
         method: 'PUT',
         body: JSON.stringify(data)
     });
+    
+    // Clear cache after mutation to ensure fresh data
+    if (clearCache) {
+        apiCache.clear();
+    }
+    
+    return result;
 }
 
 /**
  * DELETE request helper
  * @param {string} endpoint - API endpoint
+ * @param {boolean} clearCache - Clear cache after mutation (default: true)
  * @returns {Promise<Object>} Response data
  */
-async function apiDelete(endpoint) {
+async function apiDelete(endpoint, clearCache = true) {
     const url = getApiUrl(endpoint);
-    return apiFetch(url, { method: 'DELETE' });
+    const result = await apiFetch(url, { method: 'DELETE' });
+    
+    // Clear cache after mutation to ensure fresh data
+    if (clearCache) {
+        apiCache.clear();
+    }
+    
+    return result;
 }
 
 // ============================================
@@ -384,6 +479,9 @@ async function deleteRosterByDate(date) {
 }
 
 export {
+    // Cache utility (for manual cache control if needed)
+    apiCache,
+    
     // User management
     registerUser,
     getAllUsers,

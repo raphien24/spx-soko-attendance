@@ -72,6 +72,18 @@ let recordsData = [];
 let userToDelete = null;
 let autoRefreshInterval = null; // Auto-refresh timer
 
+// Lazy loading state - track which tabs have been loaded
+let tabsLoaded = {
+    dashboard: false,
+    attendance: false,
+    employees: false,
+    'employee-data': false,
+    roster: false,
+    'off-schedule': false,
+    records: false,
+    'hub-settings': false
+};
+
 /**
  * Initialize admin dashboard
  */
@@ -81,7 +93,7 @@ async function init() {
         setupEventListeners();
         startClock();
         
-        // Initialize new tabs
+        // Initialize tabs UI only (no data loading - lazy load on tab click)
         initEmployeeDataTab();
         initRosterTab();
         initOffScheduleTab();
@@ -89,7 +101,9 @@ async function init() {
         // Cek status autentikasi PIN di sesi saat ini
         if (sessionStorage.getItem('admin_authenticated') === 'true') {
             if (pinModal) pinModal.classList.add('hidden');
+            // Load dashboard data only (first tab)
             await loadDashboardData();
+            tabsLoaded.dashboard = true;
             startAutoRefresh(); // Start auto-refresh untuk dashboard
         } else {
             if (pinModal) pinModal.classList.remove('hidden');
@@ -338,37 +352,75 @@ function switchTab(tabName) {
     switch(tabName) {
         case 'dashboard':
             if (dashboardTab) dashboardTab.classList.remove('hidden');
+            // Dashboard already loaded on init
             break;
         case 'attendance':
             if (attendanceTab) attendanceTab.classList.remove('hidden');
-            loadAttendanceData();
+            // Lazy load: only load if not loaded before
+            if (!tabsLoaded.attendance) {
+                loadAttendanceData();
+                tabsLoaded.attendance = true;
+            }
             break;
         case 'employees':
             if (employeesTab) employeesTab.classList.remove('hidden');
-            loadEmployeesData();
+            // Lazy load: only load if not loaded before
+            if (!tabsLoaded.employees) {
+                loadEmployeesData();
+                tabsLoaded.employees = true;
+            }
             break;
         case 'employee-data':
             if (employeeDataTab) employeeDataTab.classList.remove('hidden');
-            loadAllEmployeesData();
+            // Lazy load: only load if not loaded before
+            if (!tabsLoaded['employee-data']) {
+                loadAllEmployeesData();
+                tabsLoaded['employee-data'] = true;
+            }
             break;
         case 'roster':
             if (rosterTab) rosterTab.classList.remove('hidden');
-            // Employees already loaded in initRosterTab via loadAllEmployeesForRoster
+            // Lazy load: only load if not loaded before
+            if (!tabsLoaded.roster) {
+                // Load employees and roster data
+                (async () => {
+                    showLoading('Memuat data roster...');
+                    await loadAllEmployeesForRoster();
+                    await handleLoadRosterData();
+                    hideLoading();
+                })();
+                tabsLoaded.roster = true;
+            }
             break;
         case 'off-schedule':
             if (offScheduleTab) offScheduleTab.classList.remove('hidden');
-            // Load employees if not already loaded
-            if (!allEmployeesCache || allEmployeesCache.length === 0) {
-                loadAllEmployeesForRoster();
+            // Lazy load: only load if not loaded before
+            if (!tabsLoaded['off-schedule']) {
+                // Load employees and off schedule data
+                (async () => {
+                    showLoading('Memuat data jadwal off...');
+                    await loadAllEmployeesForRoster();
+                    await loadOffScheduleData();
+                    hideLoading();
+                })();
+                tabsLoaded['off-schedule'] = true;
             }
             break;
         case 'records':
             if (recordsTab) recordsTab.classList.remove('hidden');
-            loadRecordsData();
+            // Lazy load: only load if not loaded before
+            if (!tabsLoaded.records) {
+                loadRecordsData();
+                tabsLoaded.records = true;
+            }
             break;
         case 'hub-settings':
             if (hubSettingsTab) hubSettingsTab.classList.remove('hidden');
-            loadHubSettings();
+            // Lazy load: only load if not loaded before
+            if (!tabsLoaded['hub-settings']) {
+                loadHubSettings();
+                tabsLoaded['hub-settings'] = true;
+            }
             break;
     }
     
@@ -1471,7 +1523,7 @@ function startClock() {
 
 /**
  * Start auto-refresh for dashboard data
- * Refreshes every 30 seconds to keep data current
+ * Refreshes every 5 minutes to keep data current (optimized for D1 quota)
  */
 function startAutoRefresh() {
     // Clear existing interval if any
@@ -1479,7 +1531,7 @@ function startAutoRefresh() {
         clearInterval(autoRefreshInterval);
     }
     
-    // Refresh dashboard every 30 seconds
+    // Refresh dashboard every 5 minutes (optimized from 30s to reduce database load)
     autoRefreshInterval = setInterval(async () => {
         // Only refresh if on dashboard tab
         if (currentTab === 'dashboard') {
@@ -1491,9 +1543,9 @@ function startAutoRefresh() {
                 errorLog('[Auto-Refresh] Failed to refresh dashboard', error);
             }
         }
-    }, 30000); // 30 seconds
+    }, 300000); // 5 minutes (300000ms) - optimized from 30 seconds
     
-    debugLog('[Auto-Refresh] Started (every 30 seconds)');
+    debugLog('[Auto-Refresh] Started (every 5 minutes)');
 }
 
 /**
@@ -2220,8 +2272,8 @@ function initRosterTab() {
             await handleLoadRosterData();
         });
         
-        // Load initial roster for default date
-        setTimeout(() => handleLoadRosterData(), 500);
+        // DON'T auto-load on init - use lazy loading when tab is clicked
+        // Data will be loaded by switchTab() when roster tab is first opened
     }
     
     // Load data button (keep for manual refresh)
@@ -3405,11 +3457,8 @@ async function initOffScheduleTab() {
         });
     });
     
-    // Load employees cache
-    await loadAllEmployeesForRoster();
-    
-    // Load initial off schedule data
-    await loadOffScheduleData();
+    // DON'T auto-load on init - use lazy loading when tab is clicked
+    // Data will be loaded by switchTab() when off-schedule tab is first opened
 }
 
 /**
