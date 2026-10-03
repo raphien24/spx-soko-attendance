@@ -612,13 +612,16 @@ async function syncEmployeesWithUsers() {
 
 async function createRosterSchedule(date, employeeData) {
     try {
+        console.log('[API] Creating roster:', { date, employeeCount: employeeData.length });
         const response = await apiPost('/api/roster', {
             date,
             employee_data: employeeData
         });
+        console.log('[API] Roster created successfully:', response);
         debugLog('Roster created:', response.data);
         return response;
     } catch (error) {
+        console.error('[API] Failed to create roster:', error);
         errorLog('Failed to create roster', error);
         throw error;
     }

@@ -3049,7 +3049,9 @@ async function handleSaveRoster() {
         }
         
         // Step 2: Save new roster with district data
-        await createRosterSchedule(date, employeeData);
+        console.log('[Roster Save] Sending to API:', { date, employeeCount: employeeData.length, employees: employeeData });
+        const saveResponse = await createRosterSchedule(date, employeeData);
+        console.log('[Roster Save] API Response:', saveResponse);
         
         // Step 3: Fetch attendance data and update summary cards
         try {
@@ -3062,6 +3064,7 @@ async function handleSaveRoster() {
         }
         
         hideLoading();
+        console.log('[Roster Save] ✅ SUCCESS - Roster saved to database');
         showNotification(`Roster berhasil disimpan: ${employeeData.length} karyawan`, 'success');
     } catch (error) {
         hideLoading();
