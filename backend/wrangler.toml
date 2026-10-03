@@ -31,3 +31,8 @@ database_id = "9c5413f8-0dd0-424f-b1a5-a94f9fdebeac"
 [[env.production.r2_buckets]]
 binding = "ATTENDANCE_BUCKET"
 bucket_name = "spx-soko-attendance-production"
+
+# Supabase configuration (replaces D1 as primary database)
+# SUPABASE_SERVICE_KEY is set as a secret via: wrangler secret put SUPABASE_SERVICE_KEY --env production
+[env.production.vars]
+SUPABASE_URL = "https://xewsujwimdubamfkqgey.supabase.co"

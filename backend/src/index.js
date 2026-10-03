@@ -4,6 +4,9 @@
  * Auto-deploy enabled via GitHub Actions
  */
 
+// Import Supabase D1 wrapper
+import { createSupabaseDB } from './db/supabase-d1-wrapper.js';
+
 // Import handlers
 import {
     registerUser,
@@ -82,6 +85,14 @@ async function handleRequest(request, env, ctx) {
     const url = new URL(request.url);
     const pathname = url.pathname;
     const method = request.method;
+    
+    // ============================================
+    // INJECT SUPABASE as env.DB (drop-in for D1)
+    // ============================================
+    if (env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY) {
+        env.DB = createSupabaseDB(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+    }
+    // Fallback: D1 still works if Supabase vars not set
     
     // Handle CORS preflight (OPTIONS)
     if (method === 'OPTIONS') {
