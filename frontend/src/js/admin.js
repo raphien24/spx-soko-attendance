@@ -46,6 +46,7 @@ let statsCards, totalEmployeesCard, presentTodayCard, absentTodayCard, totalScan
 let todayAttendanceTableBody, allEmployeesTableBody, recordsTableBody;
 let loadingOverlay, loadingMessage;
 let deleteModal, deleteModalName, confirmDeleteBtn, cancelDeleteBtn;
+let copyRosterDateModal, copySourceDateInput, copyTargetDateDisplay, confirmCopyDateBtn, cancelCopyDateBtn;
 let notificationBar, notificationMessage;
 let currentTimeElement, currentDateElement;
 let dateRangeForm, startDateInput, endDateInput, filterBtn;
@@ -150,6 +151,13 @@ function getDOMElements() {
     confirmDeleteBtn = document.getElementById('confirm-delete-btn');
     cancelDeleteBtn = document.getElementById('cancel-delete-btn');
     
+    // Copy Roster Date Modal Elements
+    copyRosterDateModal = document.getElementById('copy-roster-date-modal');
+    copySourceDateInput = document.getElementById('copy-source-date-input');
+    copyTargetDateDisplay = document.getElementById('copy-target-date-display');
+    confirmCopyDateBtn = document.getElementById('confirm-copy-date-btn');
+    cancelCopyDateBtn = document.getElementById('cancel-copy-date-btn');
+    
     notificationBar = document.getElementById('notification-bar');
     notificationMessage = document.getElementById('notification-message');
     
@@ -243,6 +251,22 @@ function setupEventListeners() {
     
     confirmDeleteBtn.addEventListener('click', handleConfirmDelete);
     cancelDeleteBtn.addEventListener('click', handleCancelDelete);
+    
+    // Copy Roster Date Modal Listeners
+    if (confirmCopyDateBtn) {
+        confirmCopyDateBtn.addEventListener('click', handleConfirmCopyDate);
+    }
+    if (cancelCopyDateBtn) {
+        cancelCopyDateBtn.addEventListener('click', handleCancelCopyDate);
+    }
+    // Close modal when clicking outside
+    if (copyRosterDateModal) {
+        copyRosterDateModal.addEventListener('click', (e) => {
+            if (e.target === copyRosterDateModal) {
+                handleCancelCopyDate();
+            }
+        });
+    }
     
     if (dateRangeForm) {
         dateRangeForm.addEventListener('submit', handleDateRangeFilter);
@@ -879,6 +903,40 @@ async function handleConfirmDelete() {
 function handleCancelDelete() {
     userToDelete = null;
     deleteModal.classList.add('hidden');
+}
+
+/**
+ * Handle confirm copy date from modal
+ */
+async function handleConfirmCopyDate() {
+    const sourceDate = copySourceDateInput.value;
+    const targetDate = rosterDateInput.value;
+    
+    if (!sourceDate) {
+        showNotification('Pilih tanggal sumber terlebih dahulu', 'error');
+        return;
+    }
+    
+    // Validate date is not in future
+    const today = new Date().toISOString().split('T')[0];
+    if (sourceDate > today) {
+        showNotification('❌ Tanggal sumber tidak boleh di masa depan!', 'error');
+        return;
+    }
+    
+    // Close modal
+    copyRosterDateModal.classList.add('hidden');
+    
+    // Call common copy function
+    await copyRosterFromDate(sourceDate, targetDate);
+}
+
+/**
+ * Handle cancel copy date modal
+ */
+function handleCancelCopyDate() {
+    copyRosterDateModal.classList.add('hidden');
+    copySourceDateInput.value = '';
 }
 
 /**
@@ -2952,7 +3010,7 @@ async function handleCopyYesterday() {
 }
 
 /**
- * Handle copy roster from custom date
+ * Handle copy roster from custom date - show date picker modal
  */
 async function handleCopyCustomDate() {
     const currentDate = rosterDateInput.value;
@@ -2961,34 +3019,21 @@ async function handleCopyCustomDate() {
         return;
     }
     
-    // Show date picker dialog
-    const sourceDate = prompt(
-        `📅 COPY ROSTER DARI TANGGAL TERTENTU\n\n` +
-        `Tanggal tujuan: ${currentDate}\n\n` +
-        `Masukkan tanggal sumber (YYYY-MM-DD):\n` +
-        `Contoh: 2026-10-01`,
-        ''
-    );
-    
-    if (!sourceDate) {
-        return; // User cancelled
-    }
-    
-    // Validate date format
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(sourceDate)) {
-        showNotification('❌ Format tanggal salah! Gunakan format: YYYY-MM-DD (contoh: 2026-10-01)', 'error');
-        return;
-    }
-    
-    // Validate date is not in future
+    // Set max date to today (can't copy from future)
     const today = new Date().toISOString().split('T')[0];
-    if (sourceDate > today) {
-        showNotification('❌ Tanggal sumber tidak boleh di masa depan!', 'error');
-        return;
-    }
+    copySourceDateInput.max = today;
+    copySourceDateInput.value = ''; // Clear previous selection
     
-    // Call common copy function
-    await copyRosterFromDate(sourceDate, currentDate);
+    // Show target date
+    copyTargetDateDisplay.textContent = `Akan di-copy ke: ${currentDate}`;
+    
+    // Show modal
+    copyRosterDateModal.classList.remove('hidden');
+    
+    // Auto-focus on date input
+    setTimeout(() => {
+        copySourceDateInput.focus();
+    }, 100);
 }
 
 /**

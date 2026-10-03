@@ -1495,10 +1495,46 @@
         </div>
     </div>
     
+    <!-- Copy Roster Date Picker Modal -->
+    <div id="copy-roster-date-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div class="text-center mb-6">
+                <div class="text-6xl mb-4">📅</div>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">Copy Roster dari Tanggal</h3>
+                <p class="text-gray-600 mb-1">Pilih tanggal sumber roster:</p>
+                <p id="copy-target-date-display" class="text-sm text-blue-600 font-semibold"></p>
+            </div>
+            
+            <div class="mb-6">
+                <label for="copy-source-date-input" class="block text-sm font-medium text-gray-700 mb-2">
+                    Tanggal Sumber
+                </label>
+                <input 
+                    type="date" 
+                    id="copy-source-date-input" 
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+                    style="color-scheme: light;"
+                />
+                <p class="text-xs text-gray-500 mt-2">
+                    💡 Klik pada input untuk membuka kalender
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <button id="cancel-copy-date-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-4 rounded-lg cursor-pointer transition-colors">
+                    Batal
+                </button>
+                <button id="confirm-copy-date-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg cursor-pointer transition-colors">
+                    Copy Roster
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <!-- JavaScript Modules -->
     <!-- html2canvas for export to image -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script type="module" src="src/js/admin.js?v=2024092719"></script>
+    <script type="module" src="src/js/admin.js?v=2024092720"></script>
     
 </body>
 </html>
