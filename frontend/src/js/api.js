@@ -301,7 +301,8 @@ async function submitAttendance(scanData) {
 
 async function getTodayAttendance() {
     try {
-        const response = await apiGet(API_CONFIG.ENDPOINTS.ATTENDANCE_TODAY);
+        // Disable cache for today's attendance - needs real-time updates
+        const response = await apiGet(API_CONFIG.ENDPOINTS.ATTENDANCE_TODAY, true, false);
         debugLog(`Fetched ${response.count} attendance logs for ${response.date}`);
         return response.data;
     } catch (error) {
@@ -626,7 +627,8 @@ async function createRosterSchedule(date, employeeData) {
 async function getRosterSchedule(date, withAttendance = true) {
     try {
         const params = withAttendance ? `?date=${date}&with_attendance=true` : `?date=${date}`;
-        const response = await apiGet(`/api/roster${params}`);
+        // Disable cache for roster schedule - needs real-time updates
+        const response = await apiGet(`/api/roster${params}`, true, false);
         debugLog(`Fetched ${response.count} roster entries for ${date}`);
         return response.data;
     } catch (error) {
@@ -682,7 +684,8 @@ async function deleteRosterByDateEmployee(date, employeeId) {
 
 async function checkRosterAttendance(date) {
     try {
-        const response = await apiGet(`/api/roster/check-attendance?date=${date}`);
+        // Disable cache for roster data - needs to be real-time
+        const response = await apiGet(`/api/roster/check-attendance?date=${date}`, true, false);
         debugLog('Attendance check:', response.summary);
         return response;
     } catch (error) {
