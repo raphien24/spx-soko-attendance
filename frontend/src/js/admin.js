@@ -2286,6 +2286,12 @@ function initRosterTab() {
         copyYesterdayBtn.addEventListener('click', handleCopyYesterday);
     }
     
+    // Copy from custom date button
+    const copyCustomDateBtn = document.getElementById('copy-custom-date-btn');
+    if (copyCustomDateBtn) {
+        copyCustomDateBtn.addEventListener('click', handleCopyCustomDate);
+    }
+    
     // Export to image button
     if (exportImageBtn) {
         exportImageBtn.addEventListener('click', handleExportToImage);
@@ -2941,24 +2947,75 @@ async function handleCopyYesterday() {
     selectedDate.setDate(selectedDate.getDate() - 1);
     const yesterdayDate = selectedDate.toISOString().split('T')[0];
     
+    // Call common copy function
+    await copyRosterFromDate(yesterdayDate, currentDate);
+}
+
+/**
+ * Handle copy roster from custom date
+ */
+async function handleCopyCustomDate() {
+    const currentDate = rosterDateInput.value;
+    if (!currentDate) {
+        showNotification('Pilih tanggal tujuan terlebih dahulu', 'error');
+        return;
+    }
+    
+    // Show date picker dialog
+    const sourceDate = prompt(
+        `📅 COPY ROSTER DARI TANGGAL TERTENTU\n\n` +
+        `Tanggal tujuan: ${currentDate}\n\n` +
+        `Masukkan tanggal sumber (YYYY-MM-DD):\n` +
+        `Contoh: 2026-10-01`,
+        ''
+    );
+    
+    if (!sourceDate) {
+        return; // User cancelled
+    }
+    
+    // Validate date format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sourceDate)) {
+        showNotification('❌ Format tanggal salah! Gunakan format: YYYY-MM-DD (contoh: 2026-10-01)', 'error');
+        return;
+    }
+    
+    // Validate date is not in future
+    const today = new Date().toISOString().split('T')[0];
+    if (sourceDate > today) {
+        showNotification('❌ Tanggal sumber tidak boleh di masa depan!', 'error');
+        return;
+    }
+    
+    // Call common copy function
+    await copyRosterFromDate(sourceDate, currentDate);
+}
+
+/**
+ * Copy roster from source date to target date (common function)
+ */
+async function copyRosterFromDate(sourceDate, targetDate) {
     // Confirm action
     const confirmed = confirm(
-        `Copy roster dari ${yesterdayDate} ke ${currentDate}?\n\n` +
-        `Roster yang ada di ${currentDate} akan ditimpa (replaced).`
+        `📋 KONFIRMASI COPY ROSTER\n\n` +
+        `Dari tanggal: ${sourceDate}\n` +
+        `Ke tanggal: ${targetDate}\n\n` +
+        `Roster yang ada di ${targetDate} akan ditimpa (replaced).\n\n` +
+        `Lanjutkan?`
     );
     
     if (!confirmed) return;
     
     try {
-        showLoading(`Memuat roster ${yesterdayDate}...`);
-        const response = await checkRosterAttendance(yesterdayDate);
+        showLoading(`Memuat roster ${sourceDate}...`);
+        const response = await checkRosterAttendance(sourceDate);
         
         // Extract roster data from response
         const roster = response.data?.rostered || [];
         
         if (roster.length === 0) {
             hideLoading();
-            showNotification(`Tidak ada roster di tanggal ${yesterdayDate}`, 'info');
+            showNotification(`Tidak ada roster di tanggal ${sourceDate}`, 'info');
             return;
         }
         
@@ -2972,7 +3029,7 @@ async function handleCopyYesterday() {
             'Rider Mitra': { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] }
         };
         
-        // Populate from yesterday's roster
+        // Populate from source roster
         roster.forEach(item => {
             const role = item.role;
             // Get district from API response (already saved in database)
@@ -3001,15 +3058,15 @@ async function handleCopyYesterday() {
         updateSummary();
         
         showNotification(
-            `✅ Roster kemarin berhasil di-copy: ${roster.length} karyawan\n\n` +
+            `✅ Roster berhasil di-copy dari ${sourceDate}: ${roster.length} karyawan\n\n` +
             `Jangan lupa klik "💾 Simpan Roster" untuk menyimpan!`,
             'success'
         );
         
     } catch (error) {
         hideLoading();
-        errorLog('Failed to copy yesterday roster', error);
-        showNotification('Gagal copy roster kemarin: ' + getErrorMessage(error), 'error');
+        errorLog('Failed to copy roster', error);
+        showNotification('Gagal copy roster: ' + getErrorMessage(error), 'error');
     }
 }
 
