@@ -726,12 +726,15 @@ function formatTime(isoTimestamp) {
 function startClock() {
     function updateClock() {
         const now = new Date();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
+        // Explicit WIB (Asia/Jakarta) — tidak bergantung timezone device
+        const wibTime = now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
+        const wibDate = new Date(wibTime);
+        const hours = String(wibDate.getHours()).padStart(2, '0');
+        const minutes = String(wibDate.getMinutes()).padStart(2, '0');
+        const seconds = String(wibDate.getSeconds()).padStart(2, '0');
         if (currentTimeElement) currentTimeElement.textContent = `${hours}:${minutes}:${seconds}`;
         
-        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Jakarta' };
         if (currentDateElement) currentDateElement.textContent = now.toLocaleDateString('id-ID', options);
     }
     updateClock();

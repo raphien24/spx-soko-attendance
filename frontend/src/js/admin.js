@@ -918,7 +918,7 @@ async function handleConfirmCopyDate() {
     }
     
     // Validate date is not in future
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayWIB();
     if (sourceDate > today) {
         showNotification('❌ Tanggal sumber tidak boleh di masa depan!', 'error');
         return;
@@ -1564,14 +1564,17 @@ function showNotification(message, type = 'info') {
 function startClock() {
     function updateClock() {
         const now = new Date();
+        // Explicit WIB (Asia/Jakarta) — tidak bergantung timezone device
+        const wibTime = now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
+        const wibDate = new Date(wibTime);
         if (currentTimeElement) {
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const hours = String(wibDate.getHours()).padStart(2, '0');
+            const minutes = String(wibDate.getMinutes()).padStart(2, '0');
+            const seconds = String(wibDate.getSeconds()).padStart(2, '0');
             currentTimeElement.textContent = `${hours}:${minutes}:${seconds}`;
         }
         if (currentDateElement) {
-            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Jakarta' };
             currentDateElement.textContent = now.toLocaleDateString('id-ID', options);
         }
     }
@@ -1699,9 +1702,12 @@ function formatDate(isoTimestamp) {
  * Format date for input field (YYYY-MM-DD)
  */
 function formatDateForInput(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    // Explicit WIB — gunakan Asia/Jakarta agar tidak bergantung timezone device
+    const wibStr = date.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
+    const wibDate = new Date(wibStr);
+    const year = wibDate.getFullYear();
+    const month = String(wibDate.getMonth() + 1).padStart(2, '0');
+    const day = String(wibDate.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
 
@@ -1767,7 +1773,8 @@ async function loadHubSettings() {
             const date = new Date(settings.updated_at);
             currentUpdatedAt.textContent = date.toLocaleString('id-ID', {
                 dateStyle: 'long',
-                timeStyle: 'short'
+                timeStyle: 'short',
+                timeZone: 'Asia/Jakarta'
             });
         }
         
@@ -2319,11 +2326,16 @@ function initRosterTab() {
         closeRosterPendingModalBtn.addEventListener('click', hideRosterPendingModal);
     }
     
-    // Set default date (tomorrow)
+    // Set default date (tomorrow in WIB)
     if (rosterDateInput) {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        rosterDateInput.value = tomorrow.toISOString().split('T')[0];
+        const todayWIB = getTodayWIB(); // YYYY-MM-DD in WIB
+        const parts = todayWIB.split('-');
+        const todayDate = new Date(Date.UTC(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])));
+        todayDate.setUTCDate(todayDate.getUTCDate() + 1);
+        const y = todayDate.getUTCFullYear();
+        const m = String(todayDate.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(todayDate.getUTCDate()).padStart(2, '0');
+        rosterDateInput.value = `${y}-${m}-${d}`;
         
         // Auto-load roster when date changes
         rosterDateInput.addEventListener('change', async () => {
@@ -3001,7 +3013,7 @@ async function handleCopyYesterday() {
     }
     
     // Calculate yesterday's date
-    const selectedDate = new Date(currentDate);
+    const selectedDate = new Date(currentDate + 'T00:00:00+07:00');
     selectedDate.setDate(selectedDate.getDate() - 1);
     const yesterdayDate = selectedDate.toISOString().split('T')[0];
     
@@ -3020,7 +3032,7 @@ async function handleCopyCustomDate() {
     }
     
     // Set max date to today (can't copy from future)
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayWIB();
     copySourceDateInput.max = today;
     copySourceDateInput.value = ''; // Clear previous selection
     
