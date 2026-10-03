@@ -267,30 +267,40 @@ class SupabaseStatement {
             }));
         }
 
-        // roster_schedule (with employees JOIN)
+        // roster_schedule (with employees JOIN) — manual join karena no FK constraint
         if (mainTable === 'roster_schedule') {
-            let query = supabase.from('roster_schedule').select(`
-                *,
-                employees ( role, enrolled_status )
-            `);
-            query = this._applyWhere(query, sql, params);
-            query = this._applyOrderBy(query, sql);
-            query = this._applyLimit(query, sql);
+            const upperSQL2 = sql.toUpperCase();
+            const date = params[0];
 
-            const { data, error } = await query;
-            if (error) throw new Error(`roster_schedule JOIN error: ${error.message}`);
+            // Fetch roster data
+            let rosterQuery = supabase.from('roster_schedule').select('*');
+            rosterQuery = this._applyWhere(rosterQuery, sql, params);
+            rosterQuery = this._applyOrderBy(rosterQuery, sql);
+            rosterQuery = this._applyLimit(rosterQuery, sql);
 
-            // Build roster + attendance status
-            if (upperSQL.includes('ATTENDANCE_LOGS') && params.length > 0) {
-                const date = params[0];
-                const wibDate = getWIBDate();
-                const lookupDate = date || wibDate;
+            const { data: rosterData, error: rosterError } = await rosterQuery;
+            if (rosterError) throw new Error(`roster_schedule SELECT error: ${rosterError.message}`);
 
+            const roster = rosterData || [];
+            if (roster.length === 0) return [];
+
+            // Fetch employees for role/enrolled_status lookup
+            const empIds = [...new Set(roster.map(r => r.employee_id))];
+            const { data: empData } = await supabase
+                .from('employees')
+                .select('employee_id, role, enrolled_status')
+                .in('employee_id', empIds);
+
+            const empMap = {};
+            (empData || []).forEach(e => { empMap[e.employee_id] = e; });
+
+            // If query also needs attendance status (getRosterWithAttendance)
+            if (upperSQL2.includes('ATTENDANCE_LOGS') && date) {
                 const { data: attData } = await supabase
                     .from('attendance_logs')
                     .select('employee_id, scan_type, timestamp')
-                    .gte('timestamp', lookupDate + 'T00:00:00+07:00')
-                    .lte('timestamp', lookupDate + 'T23:59:59+07:00');
+                    .gte('timestamp', date + 'T00:00:00+07:00')
+                    .lte('timestamp', date + 'T23:59:59+07:00');
 
                 const attMap = {};
                 (attData || []).forEach(a => {
@@ -298,45 +308,54 @@ class SupabaseStatement {
                     attMap[a.employee_id][a.scan_type] = a.timestamp;
                 });
 
-                return (data || []).map(r => ({
+                return roster.map(r => ({
                     roster_id: r.id,
                     date: r.date,
                     employee_id: r.employee_id,
                     employee_name: r.employee_name,
                     district: r.district,
-                    role: r.employees?.role || r.role,
-                    enrolled_status: r.employees?.enrolled_status || 'not_enrolled',
+                    role: empMap[r.employee_id]?.role || r.role || null,
+                    enrolled_status: empMap[r.employee_id]?.enrolled_status || 'not_enrolled',
                     attendance_status: attMap[r.employee_id]?.clock_in ? 'clocked_in' : 'not_clocked_in',
                     clock_in_time: attMap[r.employee_id]?.clock_in || null
                 }));
             }
 
-            return (data || []).map(r => ({
+            // Simple roster select with employee info merged
+            return roster.map(r => ({
                 ...r,
-                role: r.employees?.role || r.role,
-                enrolled_status: r.employees?.enrolled_status || 'not_enrolled',
-                employees: undefined
+                role: empMap[r.employee_id]?.role || r.role || null,
+                enrolled_status: empMap[r.employee_id]?.enrolled_status || 'not_enrolled'
             }));
         }
 
-        // off_schedule JOIN employees
+        // off_schedule JOIN employees — manual join
         if (mainTable === 'off_schedule') {
-            let query = supabase.from('off_schedule').select(`
-                *,
-                employees ( name, role )
-            `);
+            let query = supabase.from('off_schedule').select('*');
             query = this._applyWhere(query, sql, params);
             query = this._applyOrderBy(query, sql);
             query = this._applyLimit(query, sql);
 
             const { data, error } = await query;
-            if (error) throw new Error(`off_schedule JOIN error: ${error.message}`);
+            if (error) throw new Error(`off_schedule SELECT error: ${error.message}`);
 
-            return (data || []).map(o => ({
+            const offList = data || [];
+            if (offList.length === 0) return [];
+
+            // Fetch employee names
+            const empIds = [...new Set(offList.map(o => o.employee_id))];
+            const { data: empData } = await supabase
+                .from('employees')
+                .select('employee_id, name, role')
+                .in('employee_id', empIds);
+
+            const empMap = {};
+            (empData || []).forEach(e => { empMap[e.employee_id] = e; });
+
+            return offList.map(o => ({
                 ...o,
-                employee_name: o.employees?.name || o.employee_name,
-                role: o.employees?.role || o.role,
-                employees: undefined
+                employee_name: empMap[o.employee_id]?.name || o.employee_name || null,
+                role: empMap[o.employee_id]?.role || o.role || null
             }));
         }
 
