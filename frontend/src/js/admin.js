@@ -2319,6 +2319,29 @@ function initRosterTab() {
             modal.classList.add('hidden');
         });
     }
+    
+    // Add selected employees button (in modal footer)
+    const addSelectedEmployeesBtn = document.getElementById('add-selected-employees-btn');
+    if (addSelectedEmployeesBtn) {
+        addSelectedEmployeesBtn.addEventListener('click', () => {
+            // Get current role and district from modal state
+            const modalTitle = modal.querySelector('h3');
+            if (!modalTitle) return;
+            
+            // Parse role and district from title like "Pilih Karyawan - Rider Dedicated (SOKO)"
+            const titleText = modalTitle.textContent;
+            const match = titleText.match(/Pilih Karyawan - (.+) \((.+)\)/);
+            
+            if (match) {
+                const role = match[1].trim();
+                const district = match[2].trim();
+                addSelectedEmployees(role, district);
+            } else {
+                console.error('[Roster] Could not parse role/district from modal title:', titleText);
+                showNotification('Error: Tidak dapat mendeteksi role/district', 'error');
+            }
+        });
+    }
 
     
     // Disable close modal on outside click (removed for better UX)
