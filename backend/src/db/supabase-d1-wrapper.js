@@ -272,10 +272,10 @@ class SupabaseStatement {
             const upperSQL2 = sql.toUpperCase();
             const date = params[0];
 
-            // Fetch roster data
+            // Fetch roster data — hanya ORDER BY kolom yang ada di roster_schedule
             let rosterQuery = supabase.from('roster_schedule').select('*');
             rosterQuery = this._applyWhere(rosterQuery, sql, params);
-            rosterQuery = this._applyOrderBy(rosterQuery, sql);
+            rosterQuery = rosterQuery.order('employee_name', { ascending: true });
             rosterQuery = this._applyLimit(rosterQuery, sql);
 
             const { data: rosterData, error: rosterError } = await rosterQuery;
@@ -331,10 +331,11 @@ class SupabaseStatement {
 
         // off_schedule JOIN employees — manual join
         if (mainTable === 'off_schedule') {
+            // Fetch semua off_schedule tanpa ORDER BY dari tabel employees
             let query = supabase.from('off_schedule').select('*');
             query = this._applyWhere(query, sql, params);
-            query = this._applyOrderBy(query, sql);
-            query = this._applyLimit(query, sql);
+            // Hanya apply ORDER BY kolom yang ada di off_schedule
+            query = query.order('day_of_week', { ascending: true });
 
             const { data, error } = await query;
             if (error) throw new Error(`off_schedule SELECT error: ${error.message}`);
@@ -342,7 +343,7 @@ class SupabaseStatement {
             const offList = data || [];
             if (offList.length === 0) return [];
 
-            // Fetch employee names
+            // Fetch employee names dan role
             const empIds = [...new Set(offList.map(o => o.employee_id))];
             const { data: empData } = await supabase
                 .from('employees')
@@ -352,11 +353,22 @@ class SupabaseStatement {
             const empMap = {};
             (empData || []).forEach(e => { empMap[e.employee_id] = e; });
 
-            return offList.map(o => ({
+            const result = offList.map(o => ({
                 ...o,
-                employee_name: empMap[o.employee_id]?.name || o.employee_name || null,
-                role: empMap[o.employee_id]?.role || o.role || null
+                employee_name: empMap[o.employee_id]?.name || null,
+                role: empMap[o.employee_id]?.role || null
             }));
+
+            // Sort: role ASC, name ASC, day_of_week ASC (mirror queries.js ORDER BY)
+            result.sort((a, b) => {
+                if (a.role < b.role) return -1;
+                if (a.role > b.role) return 1;
+                if (a.employee_name < b.employee_name) return -1;
+                if (a.employee_name > b.employee_name) return 1;
+                return a.day_of_week - b.day_of_week;
+            });
+
+            return result;
         }
 
         // employees JOIN users — fallback to simple select
