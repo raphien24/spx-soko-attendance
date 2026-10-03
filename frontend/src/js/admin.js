@@ -2962,10 +2962,6 @@ async function handleCopyYesterday() {
             return;
         }
         
-        // Load district mapping from localStorage for yesterday
-        const districtMappingStr = localStorage.getItem(`roster_district_${yesterdayDate}`);
-        const districtMapping = districtMappingStr ? JSON.parse(districtMappingStr) : {};
-        
         // Clear current selection
         const districts = ['SOKO', 'RENGEL', 'GRABAGAN'];
         selectedEmployees = {
@@ -2979,9 +2975,10 @@ async function handleCopyYesterday() {
         // Populate from yesterday's roster
         roster.forEach(item => {
             const role = item.role;
-            // Get district from localStorage mapping, fallback to SOKO
-            const savedInfo = districtMapping[item.employee_id];
-            const district = savedInfo?.district || 'SOKO';
+            // Get district from API response (already saved in database)
+            const district = item.district || 'SOKO';
+            
+            console.log(`[Copy Roster] ${item.employee_name} (${item.employee_id}) - Role: ${role}, District: ${district}`);
             
             if (!selectedEmployees[role]) {
                 selectedEmployees[role] = { 'SOKO': [], 'RENGEL': [], 'GRABAGAN': [] };
