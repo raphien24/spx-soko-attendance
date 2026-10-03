@@ -27,15 +27,11 @@ async function healthCheck(request, env) {
         // Check Worker (if we got here, worker is running)
         health.worker = 'ok';
         
-        // Check D1 Database
+        // Check Database (D1 or Supabase)
         try {
-            const result = await env.DB.prepare('SELECT 1 as test').first();
-            if (result && result.test === 1) {
-                health.database = 'ok';
-            } else {
-                health.database = 'error';
-                overallStatus = 'degraded';
-            }
+            // Use hub_settings as health check — always has 1 row
+            const result = await env.DB.prepare('SELECT id FROM hub_settings LIMIT 1').first();
+            health.database = 'ok';
         } catch (error) {
             health.database = 'error';
             overallStatus = 'degraded';

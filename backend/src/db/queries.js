@@ -365,7 +365,7 @@ async function getHubSettings(db) {
     const stmt = db.prepare(
         `SELECT id, hub_name, latitude, longitude, radius_meters, updated_at, updated_by 
          FROM hub_settings 
-         WHERE id = 1`
+         LIMIT 1`
     );
     const result = await stmt.first();
     return result;
@@ -380,15 +380,19 @@ async function getHubSettings(db) {
 async function updateHubSettings(db, settings) {
     const { latitude, longitude, radius_meters, hub_name, updated_by } = settings;
     
+    // Get current hub id first (Supabase uses UUID, D1 uses integer 1)
+    const current = await db.prepare(`SELECT id FROM hub_settings LIMIT 1`).first();
+    const hubId = current?.id || '00000000-0000-0000-0000-000000000001';
+    
     const stmt = db.prepare(
         `UPDATE hub_settings 
          SET latitude = ?, 
              longitude = ?, 
              radius_meters = ?,
              hub_name = ?,
-             updated_at = datetime('now'),
+             updated_at = ?,
              updated_by = ?
-         WHERE id = 1`
+         WHERE id = ?`
     );
     
     return await stmt.bind(
@@ -396,7 +400,9 @@ async function updateHubSettings(db, settings) {
         longitude,
         radius_meters || 500,
         hub_name || 'SPX Soko Hub',
-        updated_by || null
+        new Date().toISOString(),
+        updated_by || null,
+        hubId
     ).run();
 }
 
