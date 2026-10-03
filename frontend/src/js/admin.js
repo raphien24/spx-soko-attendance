@@ -3032,7 +3032,14 @@ async function handleSaveRoster() {
     }
     
     if (employeeData.length === 0) {
+        alert('⚠️ ROSTER KOSONG!\n\nBelum ada karyawan yang dipilih untuk roster.\n\nSilakan klik tombol "Tambah Karyawan" untuk memilih karyawan terlebih dahulu.');
         showNotification('Belum ada karyawan yang dipilih', 'error');
+        return;
+    }
+    
+    // Confirmation before save
+    if (!confirm(`📋 KONFIRMASI SIMPAN ROSTER\n\nTanggal: ${date}\nJumlah karyawan: ${employeeData.length}\n\nApakah Anda yakin ingin menyimpan roster ini?\n\n(Data lama untuk tanggal ini akan diganti)`)) {
+        console.log('[Roster Save] Cancelled by user');
         return;
     }
     
@@ -3065,7 +3072,16 @@ async function handleSaveRoster() {
         
         hideLoading();
         console.log('[Roster Save] ✅ SUCCESS - Roster saved to database');
-        showNotification(`Roster berhasil disimpan: ${employeeData.length} karyawan`, 'success');
+        
+        // Hide unsaved warning
+        const warning = document.getElementById('unsaved-changes-warning');
+        if (warning) warning.classList.add('hidden');
+        
+        // Show prominent success message
+        showNotification(`✅ ROSTER TERSIMPAN KE DATABASE!\n${employeeData.length} karyawan untuk tanggal ${date}`, 'success');
+        
+        // Also show alert for extra confirmation
+        alert(`✅ BERHASIL!\n\nRoster telah tersimpan ke database:\n• Tanggal: ${date}\n• Jumlah karyawan: ${employeeData.length}\n\nData sudah aman dan akan muncul di semua device.`);
     } catch (error) {
         hideLoading();
         errorLog('Failed to save roster', error);
