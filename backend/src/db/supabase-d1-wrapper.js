@@ -321,7 +321,7 @@ class SupabaseStatement {
                 }));
             }
 
-            // Simple roster select with employee info merged
+            // Simple roster select with employee info merged (includes role from employees)
             return roster.map(r => ({
                 ...r,
                 role: empMap[r.employee_id]?.role || r.role || null,
