@@ -761,7 +761,10 @@ async function insertRoster(db, rosterData) {
  */
 async function getRosterByDate(db, date) {
     const stmt = db.prepare(
-        `SELECT * FROM roster_schedule WHERE date = ? ORDER BY employee_name ASC`
+        `SELECT r.*, e.role, e.enrolled_status
+         FROM roster_schedule r
+         LEFT JOIN employees e ON r.employee_id = e.employee_id
+         WHERE r.date = ? ORDER BY r.employee_name ASC`
     );
     const result = await stmt.bind(date).all();
     return result.results || [];
