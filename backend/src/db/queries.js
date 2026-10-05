@@ -735,12 +735,20 @@ async function syncEmployeesWithUsers(db) {
  * @returns {Promise<Object>} Result object
  */
 async function insertRoster(db, rosterData) {
+    console.log('[queries.insertRoster] Inserting roster:', {
+        id: rosterData.id,
+        date: rosterData.date,
+        employee_id: rosterData.employee_id,
+        employee_name: rosterData.employee_name,
+        district: rosterData.district || 'SOKO'
+    });
+    
     const stmt = db.prepare(
         `INSERT INTO roster_schedule (id, date, employee_id, employee_name, district, created_at, created_by) 
          VALUES (?, ?, ?, ?, ?, ?, ?)`
     );
     
-    return await stmt
+    const result = await stmt
         .bind(
             rosterData.id,
             rosterData.date,
@@ -751,6 +759,9 @@ async function insertRoster(db, rosterData) {
             rosterData.created_by || null
         )
         .run();
+    
+    console.log('[queries.insertRoster] Insert result:', result);
+    return result;
 }
 
 /**

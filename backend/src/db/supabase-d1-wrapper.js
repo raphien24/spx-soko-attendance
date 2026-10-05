@@ -111,6 +111,8 @@ class SupabaseStatement {
             row[col] = params[i] !== undefined ? params[i] : null;
         });
 
+        console.log(`[SupabaseWrapper._handleInsert] Table: ${tableName}, Row:`, row);
+
         // attendance_logs: scan_type IN→clock_in, OUT→clock_out
         if (tableName === 'attendance_logs') {
             if (row.scan_type === 'IN') row.scan_type = 'clock_in';
@@ -125,7 +127,12 @@ class SupabaseStatement {
             .select()
             .single();
 
-        if (error) throw new Error(`[${tableName}] INSERT error: ${error.message}`);
+        if (error) {
+            console.error(`[SupabaseWrapper._handleInsert] ERROR:`, error);
+            throw new Error(`[${tableName}] INSERT error: ${error.message}`);
+        }
+        
+        console.log(`[SupabaseWrapper._handleInsert] SUCCESS:`, data);
         return data;
     }
 

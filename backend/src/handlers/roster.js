@@ -146,6 +146,30 @@ async function createRoster(request, env) {
             }
         }
         
+        // Check if any employees were successfully added
+        if (results.success.length === 0 && employeeList.length > 0) {
+            // All failed - return error
+            console.error('[Roster] All roster entries failed!', {
+                total: employeeList.length,
+                failed: results.failed.length,
+                skipped: results.skipped.length
+            });
+            
+            return corsErrorResponse(
+                request,
+                `Failed to save roster: ${results.failed.length} failed, ${results.skipped.length} already exist. No new entries added.`,
+                400
+            );
+        }
+        
+        console.log(`[Roster] Roster save completed:`, {
+            date,
+            total: employeeList.length,
+            success: results.success.length,
+            skipped: results.skipped.length,
+            failed: results.failed.length
+        });
+        
         return corsResponse(request, {
             success: true,
             message: `Roster created: ${results.success.length} added, ${results.skipped.length} skipped, ${results.failed.length} failed`,
@@ -160,6 +184,16 @@ async function createRoster(request, env) {
         
     } catch (error) {
         console.error('[Roster] Create roster failed:', error);
+        
+        // Check if it's a D1 limit error
+        if (error.message && error.message.includes('exceeded D1')) {
+            return corsErrorResponse(
+                request,
+                'Database limit exceeded. Please try again tomorrow after midnight UTC (07:00 WIB).',
+                503 // Service Unavailable
+            );
+        }
+        
         return corsErrorResponse(
             request,
             error.message || 'Failed to create roster',
