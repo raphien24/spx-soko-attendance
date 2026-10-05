@@ -89,61 +89,83 @@ async function createRoster(request, env) {
             skipped: []
         };
         
-        // Process each employee
-        for (const empData of employeeList) {
-            const employee_id = empData.employee_id;
-            const district = empData.district || 'SOKO';
+        // BATCH OPTIMIZATION: Fetch all employees and existing roster in 2 queries instead of N queries
+        // This reduces subrequests from 3*N to 2 + N (for Cloudflare Workers 50 subrequest limit)
+        
+        try {
+            // 1. Fetch all employees in one query
+            const allEmployees = await getAllEmployees(env.DB);
+            const employeeMap = {};
+            allEmployees.forEach(emp => {
+                employeeMap[emp.employee_id] = emp;
+            });
             
-            try {
-                // Check if employee exists
-                const employee = await getEmployeeByEmployeeId(env.DB, employee_id);
-                if (!employee) {
-                    results.failed.push({
-                        employee_id,
-                        reason: 'Employee not found'
-                    });
-                    continue;
-                }
+            // 2. Fetch all existing roster entries for this date in one query
+            const existingRoster = await getRosterByDate(env.DB, date);
+            const existingEmployeeIds = new Set(existingRoster.map(r => r.employee_id));
+            
+            // 3. Process each employee (only INSERT operations remain)
+            for (const empData of employeeList) {
+                const employee_id = empData.employee_id;
+                const district = empData.district || 'SOKO';
                 
-                // Check if already rostered
-                const alreadyRostered = await isEmployeeRostered(env.DB, date, employee_id);
-                if (alreadyRostered) {
-                    results.skipped.push({
+                try {
+                    // Check if employee exists (from batch)
+                    const employee = employeeMap[employee_id];
+                    if (!employee) {
+                        results.failed.push({
+                            employee_id,
+                            reason: 'Employee not found'
+                        });
+                        continue;
+                    }
+                    
+                    // Check if already rostered (from batch)
+                    if (existingEmployeeIds.has(employee_id)) {
+                        results.skipped.push({
+                            employee_id,
+                            name: employee.name,
+                            reason: 'Already rostered for this date'
+                        });
+                        continue;
+                    }
+                    
+                    // Create roster entry with district
+                    const rosterData = {
+                        id: generateUUID(),
+                        date,
+                        employee_id,
+                        employee_name: employee.name,
+                        district,
+                        created_at,
+                        created_by: null // TODO: Add admin user tracking
+                    };
+                    
+                    await insertRoster(env.DB, rosterData);
+                    
+                    results.success.push({
                         employee_id,
                         name: employee.name,
-                        reason: 'Already rostered for this date'
+                        district
                     });
-                    continue;
+                    
+                    console.log(`[Roster] Added to roster: ${employee_id} - ${employee.name} (${district}) on ${date}`);
+                    
+                } catch (error) {
+                    console.error(`[Roster] Failed to add ${employee_id}:`, error);
+                    results.failed.push({
+                        employee_id,
+                        reason: error.message
+                    });
                 }
-                
-                // Create roster entry with district
-                const rosterData = {
-                    id: generateUUID(),
-                    date,
-                    employee_id,
-                    employee_name: employee.name,
-                    district,
-                    created_at,
-                    created_by: null // TODO: Add admin user tracking
-                };
-                
-                await insertRoster(env.DB, rosterData);
-                
-                results.success.push({
-                    employee_id,
-                    name: employee.name,
-                    district
-                });
-                
-                console.log(`[Roster] Added to roster: ${employee_id} - ${employee.name} (${district}) on ${date}`);
-                
-            } catch (error) {
-                console.error(`[Roster] Failed to add ${employee_id}:`, error);
-                results.failed.push({
-                    employee_id,
-                    reason: error.message
-                });
             }
+        } catch (batchError) {
+            console.error('[Roster] Batch query failed:', batchError);
+            return corsErrorResponse(
+                request,
+                `Failed to fetch employee data: ${batchError.message}`,
+                500
+            );
         }
         
         // Check if any employees were successfully added
