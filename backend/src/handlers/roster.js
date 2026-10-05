@@ -105,60 +105,90 @@ async function createRoster(request, env) {
             const existingRoster = await getRosterByDate(env.DB, date);
             const existingEmployeeIds = new Set(existingRoster.map(r => r.employee_id));
             
-            // 3. Process each employee (only INSERT operations remain)
+            // 3. Prepare INSERT operations (validate first, then batch insert)
+            const insertPromises = [];
+            const validEmployees = [];
+            
             for (const empData of employeeList) {
                 const employee_id = empData.employee_id;
                 const district = empData.district || 'SOKO';
                 
-                try {
-                    // Check if employee exists (from batch)
-                    const employee = employeeMap[employee_id];
-                    if (!employee) {
-                        results.failed.push({
-                            employee_id,
-                            reason: 'Employee not found'
-                        });
-                        continue;
-                    }
-                    
-                    // Check if already rostered (from batch)
-                    if (existingEmployeeIds.has(employee_id)) {
-                        results.skipped.push({
-                            employee_id,
-                            name: employee.name,
-                            reason: 'Already rostered for this date'
-                        });
-                        continue;
-                    }
-                    
-                    // Create roster entry with district
-                    const rosterData = {
-                        id: generateUUID(),
-                        date,
-                        employee_id,
-                        employee_name: employee.name,
-                        district,
-                        created_at,
-                        created_by: null // TODO: Add admin user tracking
-                    };
-                    
-                    await insertRoster(env.DB, rosterData);
-                    
-                    results.success.push({
-                        employee_id,
-                        name: employee.name,
-                        district
-                    });
-                    
-                    console.log(`[Roster] Added to roster: ${employee_id} - ${employee.name} (${district}) on ${date}`);
-                    
-                } catch (error) {
-                    console.error(`[Roster] Failed to add ${employee_id}:`, error);
+                // Check if employee exists (from batch)
+                const employee = employeeMap[employee_id];
+                if (!employee) {
                     results.failed.push({
                         employee_id,
-                        reason: error.message
+                        reason: 'Employee not found'
                     });
+                    continue;
                 }
+                
+                // Check if already rostered (from batch)
+                if (existingEmployeeIds.has(employee_id)) {
+                    results.skipped.push({
+                        employee_id,
+                        name: employee.name,
+                        reason: 'Already rostered for this date'
+                    });
+                    continue;
+                }
+                
+                // Prepare roster data
+                const rosterData = {
+                    id: generateUUID(),
+                    date,
+                    employee_id,
+                    employee_name: employee.name,
+                    district,
+                    created_at,
+                    created_by: null
+                };
+                
+                validEmployees.push({
+                    employee_id,
+                    name: employee.name,
+                    district
+                });
+                
+                // Add INSERT promise (will execute in parallel)
+                insertPromises.push(
+                    insertRoster(env.DB, rosterData)
+                        .then(() => ({
+                            success: true,
+                            employee_id,
+                            name: employee.name,
+                            district
+                        }))
+                        .catch(error => ({
+                            success: false,
+                            employee_id,
+                            error: error.message
+                        }))
+                );
+            }
+            
+            // 4. Execute all INSERTs in parallel
+            if (insertPromises.length > 0) {
+                console.log(`[Roster] Executing ${insertPromises.length} INSERT operations in parallel...`);
+                const insertResults = await Promise.all(insertPromises);
+                
+                // Process results
+                insertResults.forEach(result => {
+                    if (result.success) {
+                        results.success.push({
+                            employee_id: result.employee_id,
+                            name: result.name,
+                            district: result.district
+                        });
+                        console.log(`[Roster] Added to roster: ${result.employee_id} - ${result.name} (${result.district}) on ${date}`);
+                    } else {
+                        results.failed.push({
+                            employee_id: result.employee_id,
+                            reason: result.error
+                        });
+                        console.error(`[Roster] Failed to add ${result.employee_id}:`, result.error);
+                    }
+                });
             }
         } catch (batchError) {
             console.error('[Roster] Batch query failed:', batchError);
