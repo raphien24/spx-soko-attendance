@@ -36,7 +36,8 @@ const API_CONFIG = {
     },
     
     // Request timeout (milliseconds)
-    TIMEOUT: 30000 // 30 seconds
+    // Increased for batch operations like roster save
+    TIMEOUT: 120000 // 120 seconds (2 minutes)
 };
 
 /**
