@@ -220,10 +220,35 @@ function findMatchingFace(targetDescriptor, knownFaces) {
     let bestDistance = Infinity;
     
     for (const knownFace of knownFaces) {
-        // Convert array to Float32Array if needed
-        const knownDescriptor = Array.isArray(knownFace.face_descriptor)
-            ? new Float32Array(knownFace.face_descriptor)
-            : knownFace.face_descriptor;
+        // Parse face_descriptor — support semua format:
+        // 1. Float32Array (sudah siap)
+        // 2. Array of numbers (dari JSON.parse)
+        // 3. JSON string: "[0.1, -0.2, ...]"
+        // 4. Space-separated string: "0.1 -0.2 ..." (format D1/Supabase lama)
+        let knownDescriptor;
+        const fd = knownFace.face_descriptor;
+        
+        if (fd instanceof Float32Array) {
+            knownDescriptor = fd;
+        } else if (Array.isArray(fd)) {
+            knownDescriptor = new Float32Array(fd);
+        } else if (typeof fd === 'string') {
+            try {
+                // Coba JSON array dulu: "[0.1, -0.2, ...]"
+                const parsed = JSON.parse(fd);
+                knownDescriptor = new Float32Array(parsed);
+            } catch (e) {
+                // Fallback: space-separated string "0.1 -0.2 ..."
+                const nums = fd.trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+                if (nums.length === 128) {
+                    knownDescriptor = new Float32Array(nums);
+                } else {
+                    continue; // skip jika tidak valid
+                }
+            }
+        } else {
+            continue; // skip format tidak dikenal
+        }
         
         const distance = compareFaces(targetDescriptor, knownDescriptor);
         
