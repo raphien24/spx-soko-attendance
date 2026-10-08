@@ -1,0 +1,15 @@
+{
+  "name": "spx-soko-attendance-scripts",
+  "version": "1.0.0",
+  "description": "Migration and utility scripts for SPX Soko Attendance",
+  "type": "module",
+  "scripts": {
+    "export": "node scripts/export-d1-data.js",
+    "import": "node scripts/import-to-supabase.js",
+    "migrate": "node scripts/export-d1-data.js && node scripts/import-to-supabase.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.117.2",
+    "dotenv": "16.4.7"
+  }
+}
